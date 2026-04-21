@@ -109,8 +109,8 @@ The widget integrates directly into the shell experience, behaving like a native
 
 ### Prompt Behavior
 
-* Prompt starts empty on open (v1)
-* Future enhancement: seed from existing shell buffer
+* Prompt is seeded from the current shell buffer on open (v1)
+* The seeded prompt is editable within the widget
 
 ---
 
@@ -179,6 +179,7 @@ Each suggestion includes:
 * command
 * short description
 * risk classification
+* requires confirmation
 * assumptions (optional)
 * confidence score (optional)
 
@@ -188,7 +189,8 @@ Each suggestion includes:
 {
   "command": "lsof -i :3000",
   "description": "List processes using port 3000",
-  "risk": "low"
+  "risk": "low",
+  "requires_confirmation": false
 }
 ```
 
@@ -222,6 +224,8 @@ Safety is **policy-driven and configurable**.
 * Primary: model-provided label
 * Secondary: local heuristic validation (pattern matching)
 
+The local evaluator is authoritative for confirmation behavior.
+
 ---
 
 ## **9. UI Design**
@@ -248,7 +252,7 @@ find large files modified today
 
 ### Components
 
-* header (status, model, loading)
+* header (status, loading, error state)
 * prompt input
 * suggestion list
 * optional inline explanation
@@ -270,7 +274,7 @@ Responsibilities:
 * debounce input (500 ms)
 * manage async requests
 * drop stale responses
-* call OpenRouter API
+* call provider client
 * parse structured output
 * rerank/filter results locally
 * attach risk classification
@@ -293,6 +297,7 @@ Responsibilities:
       "command": "rg -n TODO .",
       "description": "Search for TODOs using ripgrep",
       "risk": "low",
+      "requires_confirmation": false,
       "uses_tools": ["rg"],
       "assumptions": ["rg is installed"],
       "confidence": 0.9
@@ -332,7 +337,7 @@ Cases:
 
 Behavior:
 
-* show error message in UI
+* show recoverable error message in the widget header/status area
 * allow retry
 * do not modify shell buffer
 
@@ -367,6 +372,7 @@ Not sent:
 * structured responses
 * safety confirmation
 * insert + optional execute
+* prompt seeding from current shell buffer
 
 ### Next
 

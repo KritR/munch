@@ -20,5 +20,5 @@ Move implementation-grade detail into focused docs:
 * `privacy-security.md`
 * `configuration.md`
 * `provider-integration.md`
-* `caching-performance.md`
 * `testing-strategy.md`
+* `prompting.md` if prompt design is formalized as a separate doc
