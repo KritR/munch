@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/krithikr/munch/internal/protocol"
+	"github.com/krithikr/munch/internal/runtime"
 )
 
 func main() {
@@ -39,29 +40,36 @@ func runSession() error {
 		return err
 	}
 
+	session := runtime.NewSession(req, nil)
+	session.Start()
+	session.UpdatePrompt(req.PromptText)
+	session.Generate()
+
 	action := protocol.Action(os.Getenv("MUNCH_STUB_ACTION"))
 	if action == "" {
 		action = protocol.ActionCancel
 	}
 
-	resp := protocol.ShellInvocationResponse{
-		SchemaVersion: protocol.SchemaVersion,
-		RequestID:     req.RequestID,
-		Action:        action,
-	}
-
+	var command string
 	switch action {
 	case protocol.ActionCancel:
-		// No-op.
 	case protocol.ActionInsert, protocol.ActionExecute:
-		command := os.Getenv("MUNCH_STUB_COMMAND")
+		command = os.Getenv("MUNCH_STUB_COMMAND")
 		if command == "" {
-			command = req.PromptText
+			suggestions := session.Suggestions()
+			if len(suggestions) > 0 {
+				command = suggestions[0].Command
+			} else {
+				command = req.PromptText
+			}
 		}
-		resp.Command = command
 	default:
 		return fmt.Errorf("unsupported stub action: %s", action)
 	}
 
+	resp, err := session.PrepareAction(action, command)
+	if err != nil {
+		return err
+	}
 	return protocol.EncodeResponse(os.Stdout, resp)
 }
