@@ -3,6 +3,7 @@ package runtime
 import (
 	"fmt"
 
+	munchctx "github.com/krithikr/munch/internal/context"
 	"github.com/krithikr/munch/internal/protocol"
 	"github.com/krithikr/munch/internal/suggest"
 )
@@ -22,6 +23,7 @@ const (
 type Session struct {
 	req           protocol.ShellInvocationRequest
 	engine        suggest.Engine
+	context       munchctx.Normalized
 	state         State
 	promptText    string
 	promptVersion int
@@ -31,11 +33,12 @@ type Session struct {
 
 func NewSession(req protocol.ShellInvocationRequest, engine suggest.Engine) *Session {
 	if engine == nil {
-		engine = suggest.FakeEngine{}
+		engine = suggest.NewFakeEngine()
 	}
 	return &Session{
 		req:        req,
 		engine:     engine,
+		context:    munchctx.Bootstrap(),
 		state:      StateInitializing,
 		promptText: req.PromptText,
 	}
@@ -65,7 +68,7 @@ func (s *Session) UpdatePrompt(prompt string) {
 }
 
 func (s *Session) Generate() {
-	s.suggestions = s.engine.Generate(s.promptText)
+	s.suggestions = s.engine.Generate(s.promptText, s.context)
 	s.state = StateShowingSuggestions
 }
 

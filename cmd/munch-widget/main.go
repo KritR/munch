@@ -8,6 +8,7 @@ import (
 
 	"github.com/krithikr/munch/internal/protocol"
 	"github.com/krithikr/munch/internal/runtime"
+	"github.com/krithikr/munch/internal/suggest"
 )
 
 func main() {
@@ -56,12 +57,7 @@ func runSession() error {
 	case protocol.ActionInsert, protocol.ActionExecute:
 		command = os.Getenv("MUNCH_STUB_COMMAND")
 		if command == "" {
-			suggestions := session.Suggestions()
-			if len(suggestions) > 0 {
-				command = suggestions[0].Command
-			} else {
-				command = req.PromptText
-			}
+			command = suggest.FirstCommand(session.Suggestions(), req.PromptText)
 		}
 	default:
 		return fmt.Errorf("unsupported stub action: %s", action)

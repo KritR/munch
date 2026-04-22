@@ -1,22 +1,19 @@
-package suggest
+package fake
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/krithikr/munch/internal/protocol"
+	"github.com/krithikr/munch/internal/provider"
 )
 
-type Engine interface {
-	Generate(prompt string) []protocol.Suggestion
-}
+type Client struct{}
 
-type FakeEngine struct{}
-
-func (FakeEngine) Generate(prompt string) []protocol.Suggestion {
-	prompt = strings.TrimSpace(prompt)
+func (Client) Generate(req provider.GenerationRequest) (provider.Response, error) {
+	prompt := strings.TrimSpace(req.PromptText)
 	if prompt == "" {
-		return nil
+		return provider.Response{}, nil
 	}
 
 	suggestion := protocol.Suggestion{
@@ -39,7 +36,14 @@ func (FakeEngine) Generate(prompt string) []protocol.Suggestion {
 	case strings.Contains(lower, "list "), strings.Contains(lower, "show "), strings.Contains(lower, "find "), strings.Contains(lower, "search "):
 		suggestion.Command = fmt.Sprintf("echo %q", prompt)
 		suggestion.Description = "Placeholder read-only suggestion for the current prompt"
+		suggestion.UsesTools = []string{"echo"}
 	}
 
-	return []protocol.Suggestion{suggestion}
+	resp := provider.Response{
+		Suggestions: []protocol.Suggestion{suggestion},
+	}
+	if req.SuggestionCount > 0 && len(resp.Suggestions) > req.SuggestionCount {
+		resp.Suggestions = resp.Suggestions[:req.SuggestionCount]
+	}
+	return resp, nil
 }
