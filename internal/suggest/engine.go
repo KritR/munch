@@ -18,9 +18,19 @@ type ProviderBackedEngine struct {
 }
 
 func NewFakeEngine() Engine {
+	return NewEngine(fakeprovider.Client{}, 5)
+}
+
+func NewEngine(client provider.Client, suggestionCount int) Engine {
+	if client == nil {
+		client = fakeprovider.Client{}
+	}
+	if suggestionCount <= 0 {
+		suggestionCount = 5
+	}
 	return ProviderBackedEngine{
-		Client:          fakeprovider.Client{},
-		SuggestionCount: 5,
+		Client:          client,
+		SuggestionCount: suggestionCount,
 	}
 }
 

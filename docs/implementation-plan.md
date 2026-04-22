@@ -137,6 +137,11 @@ Create a developer config file early with:
 * `provider.max_retries = 1`
 * `telemetry.enabled = false`
 
+Place it at:
+
+* `$XDG_CONFIG_HOME/munch/config.toml` when `XDG_CONFIG_HOME` is set
+* `~/.config/munch/config.toml` otherwise
+
 ## Phase 1: Protocol and config foundation
 
 ### Goal

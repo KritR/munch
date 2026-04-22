@@ -38,6 +38,10 @@ type Config struct {
 
 type Warning string
 
+func (c Config) HasProviderConfig() bool {
+	return c.Provider.BaseURL != "" && c.Provider.Model != "" && c.Provider.APIKeyEnv != ""
+}
+
 func Defaults() Config {
 	var cfg Config
 	cfg.Safety.Level = "balanced"
@@ -50,9 +54,13 @@ func Defaults() Config {
 }
 
 func DefaultPath() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
+	dir := os.Getenv("XDG_CONFIG_HOME")
+	if dir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		dir = filepath.Join(home, ".config")
 	}
 	return filepath.Join(dir, "munch", "config.toml"), nil
 }

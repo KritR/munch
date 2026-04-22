@@ -115,6 +115,7 @@ Provider credentials should be supplied through environment variables rather tha
 MVP expectations:
 
 * configuration stores the name of the environment variable, not the secret value
+* configuration is read from the user's XDG config path, not from the project workspace
 * secret values are read locally by the runtime
 * secret values are not included in provider payloads
 * secret values are not intentionally recorded in logs or telemetry

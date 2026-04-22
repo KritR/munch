@@ -43,7 +43,7 @@ MVP uses one global user configuration object.
 
 Characteristics:
 
-* configuration is stored in the standard user config directory
+* configuration is stored in the XDG config home
 * configuration is represented as a TOML file
 * configuration is resolved once at widget session start
 * the configuration manager exposes resolved effective settings to the runtime
@@ -68,7 +68,10 @@ This keeps runtime behavior predictable and avoids hidden precedence rules acros
 
 The MVP config file format is TOML.
 
-The configuration file should live in the standard user config directory for the platform. The exact path can be finalized during implementation, but the architecture assumes a conventional per-user config location rather than a project-local file.
+The configuration file should live at:
+
+* `$XDG_CONFIG_HOME/munch/config.toml` when `XDG_CONFIG_HOME` is set
+* `~/.config/munch/config.toml` otherwise
 
 The configuration manager is responsible for locating, parsing, and validating this file.
 
@@ -217,6 +220,5 @@ These are intentionally deferred so the MVP config model stays small and predict
 
 The following questions remain open for later refinement:
 
-* the exact platform-specific config path
 * whether provider timeout defaults should vary by provider
 * whether unsupported future shell sections should be ignored silently or produce warnings
