@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/krithikr/munch/internal/app"
+	fishbridge "github.com/krithikr/munch/internal/bridge/fish"
 	zshbridge "github.com/krithikr/munch/internal/bridge/zsh"
 	"github.com/krithikr/munch/internal/protocol"
 	"github.com/krithikr/munch/internal/runtime"
@@ -50,6 +51,8 @@ func run(args []string) error {
 	switch *mode {
 	case "session":
 		return runSession(*configPath, runtime.DevMode(*devAction))
+	case "fish-bridge":
+		return runFishBridge(*configPath, runtime.DevMode(*devAction))
 	case "zsh-bridge":
 		return runZshBridge(*configPath, runtime.DevMode(*devAction))
 	default:
@@ -80,5 +83,18 @@ func runZshBridge(configPath string, devMode runtime.DevMode) error {
 		return err
 	}
 	_, err = fmt.Fprint(os.Stdout, zshbridge.ResponseAssignments(resp))
+	return err
+}
+
+func runFishBridge(configPath string, devMode runtime.DevMode) error {
+	req, err := fishbridge.RequestFromEnv()
+	if err != nil {
+		return err
+	}
+	resp, err := app.RunSession(req, configPath, devMode)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprint(os.Stdout, fishbridge.ResponseAssignments(resp))
 	return err
 }
