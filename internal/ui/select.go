@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 
 	munchctx "github.com/krithikr/munch/internal/context"
 	"github.com/krithikr/munch/internal/protocol"
@@ -38,6 +39,7 @@ type selectorModel struct {
 	engine      suggest.Engine
 	ctx         munchctx.Normalized
 	safetyLevel string
+	styles      uiStyles
 
 	input       textinput.Model
 	spinner     spinner.Model
@@ -52,32 +54,51 @@ type selectorModel struct {
 	suggestions []protocol.Suggestion
 }
 
-var (
-	primaryColor   = lipgloss.AdaptiveColor{Light: "#1D4ED8", Dark: "#7DD3FC"}
-	mutedColor     = lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#94A3B8"}
-	selectedText   = lipgloss.AdaptiveColor{Light: "#111827", Dark: "#F8FAFC"}
-	selectedBg     = lipgloss.AdaptiveColor{Light: "#BFDBFE", Dark: "#1E3A8A"}
-	descriptionCol = lipgloss.AdaptiveColor{Light: "#374151", Dark: "#CBD5E1"}
-	errorColor     = lipgloss.AdaptiveColor{Light: "#B91C1C", Dark: "#FCA5A5"}
-	accentColor    = lipgloss.AdaptiveColor{Light: "#2563EB", Dark: "#93C5FD"}
+type uiStyles struct {
+	promptStyle     lipgloss.Style
+	hintStyle       lipgloss.Style
+	rowStyle        lipgloss.Style
+	activeStyle     lipgloss.Style
+	descStyle       lipgloss.Style
+	activeDescStyle lipgloss.Style
+	errorStyle      lipgloss.Style
+	accentColor     lipgloss.AdaptiveColor
+}
 
-	promptStyle = lipgloss.NewStyle().Bold(true).Foreground(primaryColor)
-	hintStyle   = lipgloss.NewStyle().Foreground(mutedColor)
-	rowStyle    = lipgloss.NewStyle().PaddingLeft(2).Foreground(descriptionCol)
-	activeStyle = lipgloss.NewStyle().
+func newUIStyles(r *lipgloss.Renderer) uiStyles {
+	primaryColor := lipgloss.AdaptiveColor{Light: "#1D4ED8", Dark: "#7DD3FC"}
+	mutedColor := lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#94A3B8"}
+	selectedText := lipgloss.AdaptiveColor{Light: "#111827", Dark: "#F8FAFC"}
+	selectedBg := lipgloss.AdaptiveColor{Light: "#BFDBFE", Dark: "#1E3A8A"}
+	selectedDesc := lipgloss.AdaptiveColor{Light: "#334155", Dark: "#DBEAFE"}
+	commandColor := lipgloss.AdaptiveColor{Light: "#0F172A", Dark: "#F8FAFC"}
+	descriptionCol := lipgloss.AdaptiveColor{Light: "#64748B", Dark: "#94A3B8"}
+	errorColor := lipgloss.AdaptiveColor{Light: "#B91C1C", Dark: "#FCA5A5"}
+	accentColor := lipgloss.AdaptiveColor{Light: "#2563EB", Dark: "#93C5FD"}
+	return uiStyles{
+		promptStyle: r.NewStyle().Bold(true).Foreground(primaryColor),
+		hintStyle:   r.NewStyle().Foreground(mutedColor),
+		rowStyle:    r.NewStyle().PaddingLeft(2).Foreground(commandColor).Bold(true),
+		activeStyle: r.NewStyle().
 			Bold(true).
 			Foreground(selectedText).
 			Background(selectedBg).
 			PaddingLeft(2).
-			PaddingRight(2)
-	descStyle       = lipgloss.NewStyle().Foreground(descriptionCol).PaddingLeft(4)
-	activeDescStyle = lipgloss.NewStyle().
-			Foreground(selectedText).
+			PaddingRight(2),
+		descStyle: r.NewStyle().
+			Foreground(descriptionCol).
+			Italic(true).
+			PaddingLeft(4),
+		activeDescStyle: r.NewStyle().
+			Foreground(selectedDesc).
+			Italic(true).
 			Background(selectedBg).
 			PaddingLeft(4).
-			PaddingRight(2)
-	errorStyle = lipgloss.NewStyle().Foreground(errorColor).Bold(true)
-)
+			PaddingRight(2),
+		errorStyle:  r.NewStyle().Foreground(errorColor).Bold(true),
+		accentColor: accentColor,
+	}
+}
 
 func SelectSuggestion(prompt string, engine suggest.Engine, ctx munchctx.Normalized, safetyLevel string) (Selection, error) {
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
@@ -86,6 +107,9 @@ func SelectSuggestion(prompt string, engine suggest.Engine, ctx munchctx.Normali
 	}
 	defer tty.Close()
 
+	renderer := lipgloss.NewRenderer(tty)
+	styles := newUIStyles(renderer)
+
 	input := textinput.New()
 	input.SetValue(prompt)
 	input.Focus()
@@ -93,18 +117,19 @@ func SelectSuggestion(prompt string, engine suggest.Engine, ctx munchctx.Normali
 	input.CharLimit = 2000
 	input.Prompt = "> "
 	input.Width = max(32, len(prompt)+8)
-	input.PromptStyle = lipgloss.NewStyle().Foreground(primaryColor).Bold(true)
-	input.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#111827", Dark: "#F8FAFC"})
-	input.Cursor.Style = lipgloss.NewStyle().Foreground(primaryColor).Bold(true)
+	input.PromptStyle = renderer.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#1D4ED8", Dark: "#7DD3FC"}).Bold(true)
+	input.TextStyle = renderer.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#0F172A", Dark: "#F8FAFC"})
+	input.Cursor.Style = renderer.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#1D4ED8", Dark: "#7DD3FC"}).Bold(true)
 
 	spin := spinner.New()
 	spin.Spinner = spinner.Dot
-	spin.Style = lipgloss.NewStyle().Foreground(primaryColor)
+	spin.Style = renderer.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#1D4ED8", Dark: "#7DD3FC"})
 
 	model := selectorModel{
 		engine:      engine,
 		ctx:         ctx,
 		safetyLevel: safetyLevel,
+		styles:      styles,
 		input:       input,
 		spinner:     spin,
 		version:     1,
@@ -129,6 +154,7 @@ func SelectSuggestion(prompt string, engine suggest.Engine, ctx munchctx.Normali
 	if !ok {
 		return Selection{}, fmt.Errorf("unexpected final UI model type %T", finalModel)
 	}
+	clearRenderedUI(tty, result.renderHeight())
 	return result.selection, nil
 }
 
@@ -248,12 +274,12 @@ func (m selectorModel) updateConfirming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m selectorModel) View() string {
-	lines := []string{promptStyle.Render(m.input.View())}
+	lines := []string{m.styles.promptStyle.Render(m.input.View())}
 
 	if m.err != nil {
-		lines = append(lines, errorStyle.Render("Error: "+m.err.Error()))
+		lines = append(lines, m.styles.errorStyle.Render("Error: "+m.err.Error()))
 	} else if m.loading {
-		lines = append(lines, lipgloss.JoinHorizontal(lipgloss.Left, m.spinner.View(), " ", hintStyle.Render("Generating suggestions")))
+		lines = append(lines, lipgloss.JoinHorizontal(lipgloss.Left, m.spinner.View(), " ", m.styles.hintStyle.Render("Generating suggestions")))
 	}
 
 	if m.confirming && len(m.suggestions) > 0 {
@@ -264,21 +290,21 @@ func (m selectorModel) View() string {
 		}
 		lines = append(lines,
 			"",
-			activeStyle.Render("Confirm Command"),
+			m.styles.activeStyle.Render("Confirm Command"),
 			reason,
 			"",
-			rowStyle.Render(suggestion.Command),
+			m.styles.rowStyle.Render(suggestion.Command),
 			"",
-			hintStyle.Render("enter/y: confirm • esc/n: go back"),
+			m.styles.hintStyle.Render("enter/y: confirm • esc/n: go back"),
 		)
 		return lipgloss.JoinVertical(lipgloss.Left, lines...)
 	}
 
 	if len(m.suggestions) == 0 {
 		if !m.loading {
-			lines = append(lines, "", hintStyle.Render("No suggestions yet. Keep typing or wait for results."))
+			lines = append(lines, "", m.styles.hintStyle.Render("No suggestions yet. Keep typing or wait for results."))
 		}
-		lines = append(lines, "", hintStyle.Render("up/down: move • enter: insert • esc: cancel"))
+		lines = append(lines, "", m.styles.hintStyle.Render("up/down: move • enter: insert • esc: cancel"))
 		return lipgloss.JoinVertical(lipgloss.Left, lines...)
 	}
 
@@ -287,14 +313,14 @@ func (m selectorModel) View() string {
 		if i == m.selected {
 			lines = append(lines, m.renderSelectedSuggestion(suggestion))
 		} else {
-			lines = append(lines, rowStyle.Render(suggestion.Command))
+			lines = append(lines, m.styles.rowStyle.Render(suggestion.Command))
 			if suggestion.Description != "" {
-				lines = append(lines, descStyle.Render(suggestion.Description))
+				lines = append(lines, m.styles.descStyle.Render(suggestion.Description))
 			}
 		}
 	}
 
-	lines = append(lines, "", hintStyle.Render("type to edit • up/down: move • enter: insert • esc: cancel"))
+	lines = append(lines, "", m.styles.hintStyle.Render("type to edit • up/down: move • enter: insert • esc: cancel"))
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
@@ -318,16 +344,53 @@ func generateSuggestions(version int, prompt string, engine suggest.Engine, ctx 
 
 func (m selectorModel) renderSelectedSuggestion(suggestion protocol.Suggestion) string {
 	parts := []string{
-		activeStyle.Render(suggestion.Command),
+		m.styles.activeStyle.Render(suggestion.Command),
 	}
 	if suggestion.Description != "" {
-		parts = append(parts, activeDescStyle.Render(suggestion.Description))
+		parts = append(parts, m.styles.activeDescStyle.Render(suggestion.Description))
 	}
 
 	block := lipgloss.JoinVertical(lipgloss.Left, parts...)
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.ThickBorder()).
 		BorderLeft(true).
-		BorderForeground(accentColor).
+		BorderForeground(m.styles.accentColor).
 		Render(block)
+}
+
+func (m selectorModel) renderHeight() int {
+	view := m.View()
+	if view == "" {
+		return 0
+	}
+
+	width := m.width
+	if width <= 0 {
+		width = 80
+	}
+
+	total := 0
+	for _, line := range strings.Split(view, "\n") {
+		lineWidth := ansi.StringWidth(line)
+		lineHeight := 1
+		if lineWidth > width {
+			lineHeight = (lineWidth + width - 1) / width
+		}
+		total += lineHeight
+	}
+	return total
+}
+
+func clearRenderedUI(f *os.File, height int) {
+	if f == nil || height <= 0 {
+		return
+	}
+
+	for i := 0; i < height; i++ {
+		fmt.Fprint(f, "\r\033[2K")
+		if i < height-1 {
+			fmt.Fprint(f, "\033[1A")
+		}
+	}
+	fmt.Fprint(f, "\r")
 }
