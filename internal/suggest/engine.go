@@ -9,8 +9,8 @@ import (
 )
 
 type Engine interface {
-	Generate(prompt string, ctx munchctx.Normalized) []protocol.Suggestion
 	Name() string
+	Generate(prompt string, ctx munchctx.Normalized) ([]protocol.Suggestion, error)
 }
 
 type ProviderBackedEngine struct {
@@ -35,7 +35,7 @@ func NewEngine(client provider.Client, suggestionCount int) Engine {
 	}
 }
 
-func (e ProviderBackedEngine) Generate(prompt string, ctx munchctx.Normalized) []protocol.Suggestion {
+func (e ProviderBackedEngine) Generate(prompt string, ctx munchctx.Normalized) ([]protocol.Suggestion, error) {
 	client := e.Client
 	if client == nil {
 		client = fakeprovider.Client{}
@@ -53,10 +53,10 @@ func (e ProviderBackedEngine) Generate(prompt string, ctx munchctx.Normalized) [
 		SuggestionCount: count,
 	})
 	if err != nil {
-		return nil
+		return nil, err
 	}
 
-	return resp.Suggestions
+	return resp.Suggestions, nil
 }
 
 func (e ProviderBackedEngine) Name() string {

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"time"
@@ -16,10 +17,26 @@ import (
 )
 
 func main() {
+	initLogger()
 	if err := run(os.Args[1:]); err != nil {
 		slog.Error("munch-widget failed", "error", err)
 		os.Exit(1)
 	}
+}
+
+func initLogger() {
+	var out io.Writer = os.Stderr
+	if path := os.Getenv("MUNCH_LOG_FILE"); path != "" {
+		f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+		if err == nil {
+			out = f
+		}
+	}
+
+	logger := slog.New(slog.NewTextHandler(out, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
 }
 
 func run(args []string) error {
@@ -42,10 +59,12 @@ func run(args []string) error {
 }
 
 func runSession(configPath string, devMode runtime.DevMode) error {
+	slog.Debug("starting session", "config_path", configPath, "dev_mode", devMode)
 	req, err := protocol.DecodeRequest(os.Stdin)
 	if err != nil {
 		return err
 	}
+	slog.Debug("decoded request", "request_id", req.RequestID, "shell", req.Shell, "prompt_text", req.PromptText)
 
 	cfg, warnings, err := config.Load(configPath)
 	if err != nil {
@@ -55,18 +74,28 @@ func runSession(configPath string, devMode runtime.DevMode) error {
 		slog.Warn("config warning", "warning", string(warning))
 	}
 
-	session := runtime.NewSession(req, buildEngine(cfg))
+	engine := buildEngine(cfg)
+	slog.Debug("selected engine", "engine", engine.Name())
+
+	session := runtime.NewSession(req, engine)
 	session.Start()
 	session.UpdatePrompt(req.PromptText)
-	session.Generate()
+	if err := session.GenerateWithError(); err != nil {
+		slog.Warn("generation failed", "error", err)
+	} else {
+		slog.Debug("generation succeeded")
+	}
+	slog.Debug("generated suggestions", "count", len(session.Suggestions()))
 
 	action := protocol.Action(os.Getenv("MUNCH_STUB_ACTION"))
 	if action == "" {
 		if autoAction, autoCommand, ok := runtime.ResolveDevAction(devMode, session.Suggestions(), req.PromptText); ok {
+			slog.Debug("resolved dev action", "action", autoAction, "command", autoCommand)
 			resp, err := session.PrepareAction(autoAction, autoCommand)
 			if err != nil {
 				return err
 			}
+			slog.Debug("returning response", "action", resp.Action, "command", resp.Command)
 			return protocol.EncodeResponse(os.Stdout, resp)
 		}
 		action = protocol.ActionCancel
@@ -88,6 +117,7 @@ func runSession(configPath string, devMode runtime.DevMode) error {
 	if err != nil {
 		return err
 	}
+	slog.Debug("returning response", "action", resp.Action, "command", resp.Command)
 	return protocol.EncodeResponse(os.Stdout, resp)
 }
 

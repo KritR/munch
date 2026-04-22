@@ -26,6 +26,7 @@ type Client struct {
 func (c Client) Name() string {
 	return "cerebras"
 }
+
 func (c Client) Generate(req provider.GenerationRequest) (provider.Response, error) {
 	baseURL := strings.TrimRight(c.BaseURL, "/")
 	if baseURL == "" {

@@ -68,7 +68,13 @@ func (s *Session) UpdatePrompt(prompt string) {
 }
 
 func (s *Session) Generate() {
-	s.suggestions = s.engine.Generate(s.promptText, s.context)
+	suggestions, err := s.engine.Generate(s.promptText, s.context)
+	if err != nil {
+		s.suggestions = nil
+		s.state = StateShowingSuggestions
+		return
+	}
+	s.suggestions = suggestions
 	s.state = StateShowingSuggestions
 }
 
