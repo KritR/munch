@@ -14,6 +14,7 @@ import (
 	"github.com/krithikr/munch/internal/provider/cerebras"
 	"github.com/krithikr/munch/internal/runtime"
 	"github.com/krithikr/munch/internal/suggest"
+	"github.com/krithikr/munch/internal/ui"
 )
 
 func main() {
@@ -98,7 +99,18 @@ func runSession(configPath string, devMode runtime.DevMode) error {
 			slog.Debug("returning response", "action", resp.Action, "command", resp.Command)
 			return protocol.EncodeResponse(os.Stdout, resp)
 		}
-		action = protocol.ActionCancel
+
+		selection, err := ui.SelectSuggestion(req.PromptText, session.Suggestions())
+		if err != nil {
+			return err
+		}
+		slog.Debug("resolved interactive selection", "action", selection.Action, "command", selection.Command)
+		resp, err := session.PrepareAction(selection.Action, selection.Command)
+		if err != nil {
+			return err
+		}
+		slog.Debug("returning response", "action", resp.Action, "command", resp.Command)
+		return protocol.EncodeResponse(os.Stdout, resp)
 	}
 
 	var command string
