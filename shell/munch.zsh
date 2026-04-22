@@ -5,6 +5,7 @@
 # python3 for now so the shell code stays simple during the bootstrap phase.
 
 : "${MUNCH_WIDGET_BIN:=munch-widget}"
+: "${MUNCH_WIDGET_ARGS:=}"
 
 function _munch_widget_build_request_json() {
   local request_id="$1"
@@ -71,7 +72,15 @@ function munch-widget-zle() {
     return 1
   }
 
-  response=$(printf '%s' "$payload" | "$MUNCH_WIDGET_BIN" --mode session) || {
+  local -a widget_cmd
+  widget_cmd=("$MUNCH_WIDGET_BIN" --mode session)
+  if [[ -n "$MUNCH_WIDGET_ARGS" ]]; then
+    local -a extra_args
+    extra_args=(${(z)MUNCH_WIDGET_ARGS})
+    widget_cmd+=("${extra_args[@]}")
+  fi
+
+  response=$(printf '%s' "$payload" | "${widget_cmd[@]}") || {
     zle -M "munch-widget execution failed"
     return 1
   }
