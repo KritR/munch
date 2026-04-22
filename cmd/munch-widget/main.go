@@ -6,6 +6,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/krithikr/munch/internal/config"
@@ -54,6 +56,8 @@ func run(args []string) error {
 	switch *mode {
 	case "session":
 		return runSession(*configPath, runtime.DevMode(*devAction))
+	case "zsh-bridge":
+		return runZshBridge(*configPath, runtime.DevMode(*devAction))
 	default:
 		return fmt.Errorf("unsupported mode: %s", *mode)
 	}
@@ -65,11 +69,32 @@ func runSession(configPath string, devMode runtime.DevMode) error {
 	if err != nil {
 		return err
 	}
+	resp, err := runRequest(req, configPath, devMode)
+	if err != nil {
+		return err
+	}
+	return protocol.EncodeResponse(os.Stdout, resp)
+}
+
+func runZshBridge(configPath string, devMode runtime.DevMode) error {
+	req, err := requestFromEnv(protocol.ShellZsh)
+	if err != nil {
+		return err
+	}
+	resp, err := runRequest(req, configPath, devMode)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprint(os.Stdout, responseAssignments(resp))
+	return err
+}
+
+func runRequest(req protocol.ShellInvocationRequest, configPath string, devMode runtime.DevMode) (protocol.ShellInvocationResponse, error) {
 	slog.Debug("decoded request", "request_id", req.RequestID, "shell", req.Shell, "prompt_text", req.PromptText)
 
 	cfg, warnings, err := config.Load(configPath)
 	if err != nil {
-		return err
+		return protocol.ShellInvocationResponse{}, err
 	}
 	for _, warning := range warnings {
 		slog.Warn("config warning", "warning", string(warning))
@@ -94,23 +119,23 @@ func runSession(configPath string, devMode runtime.DevMode) error {
 			slog.Debug("resolved dev action", "action", autoAction, "command", autoCommand)
 			resp, err := session.PrepareAction(autoAction, autoCommand)
 			if err != nil {
-				return err
+				return protocol.ShellInvocationResponse{}, err
 			}
 			slog.Debug("returning response", "action", resp.Action, "command", resp.Command)
-			return protocol.EncodeResponse(os.Stdout, resp)
+			return resp, nil
 		}
 
 		selection, err := ui.SelectSuggestion(req.PromptText, session.Suggestions())
 		if err != nil {
-			return err
+			return protocol.ShellInvocationResponse{}, err
 		}
 		slog.Debug("resolved interactive selection", "action", selection.Action, "command", selection.Command)
 		resp, err := session.PrepareAction(selection.Action, selection.Command)
 		if err != nil {
-			return err
+			return protocol.ShellInvocationResponse{}, err
 		}
 		slog.Debug("returning response", "action", resp.Action, "command", resp.Command)
-		return protocol.EncodeResponse(os.Stdout, resp)
+		return resp, nil
 	}
 
 	var command string
@@ -122,15 +147,15 @@ func runSession(configPath string, devMode runtime.DevMode) error {
 			command = suggest.FirstCommand(session.Suggestions(), req.PromptText)
 		}
 	default:
-		return fmt.Errorf("unsupported stub action: %s", action)
+		return protocol.ShellInvocationResponse{}, fmt.Errorf("unsupported stub action: %s", action)
 	}
 
 	resp, err := session.PrepareAction(action, command)
 	if err != nil {
-		return err
+		return protocol.ShellInvocationResponse{}, err
 	}
 	slog.Debug("returning response", "action", resp.Action, "command", resp.Command)
-	return protocol.EncodeResponse(os.Stdout, resp)
+	return resp, nil
 }
 
 func buildEngine(cfg config.Config) suggest.Engine {
@@ -159,4 +184,44 @@ func buildProviderClient(cfg config.Config) provider.Client {
 		Timeout:    time.Duration(cfg.Provider.TimeoutMS) * time.Millisecond,
 		MaxRetries: cfg.Provider.MaxRetries,
 	}
+}
+
+func requestFromEnv(shell protocol.Shell) (protocol.ShellInvocationRequest, error) {
+	cursor, err := strconv.Atoi(os.Getenv("CURSOR_POSITION"))
+	if err != nil {
+		return protocol.ShellInvocationRequest{}, fmt.Errorf("invalid CURSOR_POSITION: %w", err)
+	}
+
+	reqID := os.Getenv("REQUEST_ID")
+	if reqID == "" {
+		reqID = fmt.Sprintf("req_%d", time.Now().UnixNano())
+	}
+
+	req := protocol.ShellInvocationRequest{
+		SchemaVersion:  protocol.SchemaVersion,
+		RequestID:      reqID,
+		Shell:          shell,
+		OriginalBuffer: os.Getenv("ORIGINAL_BUFFER"),
+		PromptText:     os.Getenv("PROMPT_TEXT"),
+		CursorPosition: cursor,
+	}
+	return req, req.Validate()
+}
+
+func responseAssignments(resp protocol.ShellInvocationResponse) string {
+	var b strings.Builder
+	b.WriteString("MUNCH_ACTION=")
+	b.WriteString(shellQuote(string(resp.Action)))
+	b.WriteString("\n")
+	b.WriteString("MUNCH_COMMAND=")
+	b.WriteString(shellQuote(resp.Command))
+	b.WriteString("\n")
+	return b.String()
+}
+
+func shellQuote(s string) string {
+	if s == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
 }
