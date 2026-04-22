@@ -15,7 +15,10 @@ func (Client) Name() string {
 }
 
 func (Client) Generate(req provider.GenerationRequest) (provider.Response, error) {
-	prompt := strings.TrimSpace(req.UserPrompt)
+	prompt := strings.TrimSpace(req.PromptText)
+	if prompt == "" {
+		prompt = strings.TrimSpace(req.UserPrompt)
+	}
 	if prompt == "" {
 		return provider.Response{}, nil
 	}

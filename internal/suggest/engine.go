@@ -51,6 +51,7 @@ func (e ProviderBackedEngine) Generate(prompt string, ctx munchctx.Normalized, s
 	resp, err := client.Generate(provider.GenerationRequest{
 		SystemPrompt:    prompting.CanonicalSystemPrompt,
 		UserPrompt:      rendered,
+		PromptText:      prompt,
 		SuggestionCount: count,
 	})
 	if err != nil {

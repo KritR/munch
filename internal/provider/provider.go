@@ -5,6 +5,7 @@ import "github.com/krithikr/munch/internal/protocol"
 type GenerationRequest struct {
 	SystemPrompt    string
 	UserPrompt      string
+	PromptText      string
 	SuggestionCount int
 }
 
