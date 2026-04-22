@@ -10,6 +10,10 @@ import (
 
 type Client struct{}
 
+func (Client) Name() string {
+	return "fake"
+}
+
 func (Client) Generate(req provider.GenerationRequest) (provider.Response, error) {
 	prompt := strings.TrimSpace(req.UserPrompt)
 	if prompt == "" {

@@ -10,6 +10,7 @@ import (
 
 type Engine interface {
 	Generate(prompt string, ctx munchctx.Normalized) []protocol.Suggestion
+	Name() string
 }
 
 type ProviderBackedEngine struct {
@@ -56,6 +57,14 @@ func (e ProviderBackedEngine) Generate(prompt string, ctx munchctx.Normalized) [
 	}
 
 	return resp.Suggestions
+}
+
+func (e ProviderBackedEngine) Name() string {
+	client := e.Client
+	if client == nil {
+		client = fakeprovider.Client{}
+	}
+	return client.Name()
 }
 
 func FirstCommand(suggestions []protocol.Suggestion, fallback string) string {

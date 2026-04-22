@@ -13,5 +13,6 @@ type Response struct {
 }
 
 type Client interface {
+	Name() string
 	Generate(GenerationRequest) (Response, error)
 }
