@@ -38,7 +38,7 @@ func NewSession(req protocol.ShellInvocationRequest, engine suggest.Engine) *Ses
 	return &Session{
 		req:        req,
 		engine:     engine,
-		context:    munchctx.Bootstrap(),
+		context:    munchctx.CollectBootstrap(),
 		state:      StateInitializing,
 		promptText: req.PromptText,
 	}
