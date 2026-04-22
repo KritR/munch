@@ -19,6 +19,7 @@ type selectorModel struct {
 	prompt      string
 	suggestions []protocol.Suggestion
 	selected    int
+	confirming  bool
 	selection   Selection
 	width       int
 	height      int
@@ -83,9 +84,16 @@ func (m selectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
+			if m.confirming {
+				m.confirming = false
+				return m, nil
+			}
 			m.selection = Selection{Action: protocol.ActionCancel}
 			return m, tea.Quit
 		case "up", "k":
+			if m.confirming {
+				return m, nil
+			}
 			if len(m.suggestions) == 0 {
 				return m, nil
 			}
@@ -94,6 +102,9 @@ func (m selectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "down", "j":
+			if m.confirming {
+				return m, nil
+			}
 			if len(m.suggestions) == 0 {
 				return m, nil
 			}
@@ -101,10 +112,35 @@ func (m selectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selected++
 			}
 			return m, nil
+		case "y":
+			if !m.confirming || len(m.suggestions) == 0 {
+				return m, nil
+			}
+			m.selection = Selection{
+				Action:  protocol.ActionInsert,
+				Command: m.suggestions[m.selected].Command,
+			}
+			return m, tea.Quit
+		case "n":
+			if m.confirming {
+				m.confirming = false
+			}
+			return m, nil
 		case "enter":
 			if len(m.suggestions) == 0 {
 				m.selection = Selection{Action: protocol.ActionCancel}
 				return m, tea.Quit
+			}
+			if m.confirming {
+				m.selection = Selection{
+					Action:  protocol.ActionInsert,
+					Command: m.suggestions[m.selected].Command,
+				}
+				return m, tea.Quit
+			}
+			if m.suggestions[m.selected].RequiresConfirmation {
+				m.confirming = true
+				return m, nil
 			}
 			m.selection = Selection{
 				Action:  protocol.ActionInsert,
@@ -132,6 +168,23 @@ func (m selectorModel) View() string {
 		titleStyle.Render("munch"),
 		fmt.Sprintf("Task: %s", m.prompt),
 		"",
+	}
+
+	if m.confirming {
+		suggestion := m.suggestions[m.selected]
+		reason := suggestion.ConfirmationReason
+		if reason == "" {
+			reason = "This command requires confirmation."
+		}
+		lines = append(lines,
+			activeStyle.Render("Confirm Command"),
+			reason,
+			"",
+			rowStyle.Render(suggestion.Command),
+			"",
+			hintStyle.Render("enter/y: confirm • esc/n: go back"),
+		)
+		return lipgloss.JoinVertical(lipgloss.Left, lines...)
 	}
 
 	for i, suggestion := range m.suggestions {

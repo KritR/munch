@@ -60,3 +60,37 @@ func TestSelectorMovesDown(t *testing.T) {
 		t.Fatalf("unexpected selected index: %d", got.selected)
 	}
 }
+
+func TestSelectorEnterRequiresConfirmationFirst(t *testing.T) {
+	model := selectorModel{
+		prompt: "delete build",
+		suggestions: []protocol.Suggestion{
+			{Command: "rm -rf build", Description: "Delete build", RequiresConfirmation: true, ConfirmationReason: "This command may delete files."},
+		},
+	}
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := next.(selectorModel)
+	if !got.confirming {
+		t.Fatal("expected confirming state")
+	}
+	if got.selection.Action != "" {
+		t.Fatalf("unexpected selection action: %s", got.selection.Action)
+	}
+}
+
+func TestSelectorConfirmingEnterConfirms(t *testing.T) {
+	model := selectorModel{
+		prompt:     "delete build",
+		confirming: true,
+		suggestions: []protocol.Suggestion{
+			{Command: "rm -rf build", Description: "Delete build", RequiresConfirmation: true},
+		},
+	}
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := next.(selectorModel)
+	if got.selection.Action != protocol.ActionInsert {
+		t.Fatalf("unexpected action: %s", got.selection.Action)
+	}
+}

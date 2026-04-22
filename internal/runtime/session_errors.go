@@ -3,7 +3,7 @@ package runtime
 import "github.com/krithikr/munch/internal/protocol"
 
 func (s *Session) GenerateWithError() error {
-	suggestions, err := s.engine.Generate(s.promptText, s.context)
+	suggestions, err := s.engine.Generate(s.promptText, s.context, s.safetyLevel)
 	if err != nil {
 		s.suggestions = nil
 		s.state = StateShowingSuggestions

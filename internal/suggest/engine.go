@@ -6,11 +6,12 @@ import (
 	"github.com/krithikr/munch/internal/protocol"
 	"github.com/krithikr/munch/internal/provider"
 	fakeprovider "github.com/krithikr/munch/internal/provider/fake"
+	"github.com/krithikr/munch/internal/safety"
 )
 
 type Engine interface {
 	Name() string
-	Generate(prompt string, ctx munchctx.Normalized) ([]protocol.Suggestion, error)
+	Generate(prompt string, ctx munchctx.Normalized, safetyLevel string) ([]protocol.Suggestion, error)
 }
 
 type ProviderBackedEngine struct {
@@ -35,7 +36,7 @@ func NewEngine(client provider.Client, suggestionCount int) Engine {
 	}
 }
 
-func (e ProviderBackedEngine) Generate(prompt string, ctx munchctx.Normalized) ([]protocol.Suggestion, error) {
+func (e ProviderBackedEngine) Generate(prompt string, ctx munchctx.Normalized, safetyLevel string) ([]protocol.Suggestion, error) {
 	client := e.Client
 	if client == nil {
 		client = fakeprovider.Client{}
@@ -56,7 +57,7 @@ func (e ProviderBackedEngine) Generate(prompt string, ctx munchctx.Normalized) (
 		return nil, err
 	}
 
-	return resp.Suggestions, nil
+	return safety.Apply(safety.Level(safetyLevel), resp.Suggestions), nil
 }
 
 func (e ProviderBackedEngine) Name() string {

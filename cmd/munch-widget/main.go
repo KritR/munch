@@ -78,7 +78,7 @@ func runSession(configPath string, devMode runtime.DevMode) error {
 	engine := buildEngine(cfg)
 	slog.Debug("selected engine", "engine", engine.Name())
 
-	session := runtime.NewSession(req, engine)
+	session := runtime.NewSessionWithSafetyLevel(req, engine, cfg.Safety.Level)
 	session.Start()
 	session.UpdatePrompt(req.PromptText)
 	if err := session.GenerateWithError(); err != nil {

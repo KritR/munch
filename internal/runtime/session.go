@@ -24,6 +24,7 @@ type Session struct {
 	req           protocol.ShellInvocationRequest
 	engine        suggest.Engine
 	context       munchctx.Normalized
+	safetyLevel   string
 	state         State
 	promptText    string
 	promptVersion int
@@ -32,15 +33,20 @@ type Session struct {
 }
 
 func NewSession(req protocol.ShellInvocationRequest, engine suggest.Engine) *Session {
+	return NewSessionWithSafetyLevel(req, engine, "balanced")
+}
+
+func NewSessionWithSafetyLevel(req protocol.ShellInvocationRequest, engine suggest.Engine, safetyLevel string) *Session {
 	if engine == nil {
 		engine = suggest.NewFakeEngine()
 	}
 	return &Session{
-		req:        req,
-		engine:     engine,
-		context:    munchctx.CollectBootstrap(),
-		state:      StateInitializing,
-		promptText: req.PromptText,
+		req:         req,
+		engine:      engine,
+		context:     munchctx.CollectBootstrap(),
+		safetyLevel: safetyLevel,
+		state:       StateInitializing,
+		promptText:  req.PromptText,
 	}
 }
 
@@ -68,7 +74,7 @@ func (s *Session) UpdatePrompt(prompt string) {
 }
 
 func (s *Session) Generate() {
-	suggestions, err := s.engine.Generate(s.promptText, s.context)
+	suggestions, err := s.engine.Generate(s.promptText, s.context, s.safetyLevel)
 	if err != nil {
 		s.suggestions = nil
 		s.state = StateShowingSuggestions
