@@ -28,19 +28,20 @@ func run(args []string) error {
 
 	mode := fs.String("mode", "session", "run mode")
 	configPath := fs.String("config", "", "path to config file")
+	devAction := fs.String("dev-action", "none", "developer action override: none|auto-insert-first")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 
 	switch *mode {
 	case "session":
-		return runSession(*configPath)
+		return runSession(*configPath, runtime.DevMode(*devAction))
 	default:
 		return fmt.Errorf("unsupported mode: %s", *mode)
 	}
 }
 
-func runSession(configPath string) error {
+func runSession(configPath string, devMode runtime.DevMode) error {
 	req, err := protocol.DecodeRequest(os.Stdin)
 	if err != nil {
 		return err
@@ -61,6 +62,13 @@ func runSession(configPath string) error {
 
 	action := protocol.Action(os.Getenv("MUNCH_STUB_ACTION"))
 	if action == "" {
+		if autoAction, autoCommand, ok := runtime.ResolveDevAction(devMode, session.Suggestions(), req.PromptText); ok {
+			resp, err := session.PrepareAction(autoAction, autoCommand)
+			if err != nil {
+				return err
+			}
+			return protocol.EncodeResponse(os.Stdout, resp)
+		}
 		action = protocol.ActionCancel
 	}
 
