@@ -55,13 +55,14 @@ Both Zsh and Fish follow the same high-level lifecycle:
 1. The user invokes the widget through a shell keybinding.
 2. The shell adapter captures shell-local state.
 3. The shell adapter launches a fresh widget process.
-4. The shell adapter sends a single JSON request on `stdin`.
-5. The widget runs its UI and internal suggestion flow.
-6. The widget returns a single JSON response on `stdout`.
-7. The shell adapter interprets the returned action.
-8. The shell adapter either restores the original buffer, replaces the full buffer, or replaces the full buffer and executes it.
+4. The shell adapter launches the widget in a shell-specific bridge mode.
+5. Shell-local state is passed into the bridge through environment variables.
+6. The widget runs its UI and internal suggestion flow.
+7. The bridge returns shell-safe assignments to the shell adapter.
+8. The shell adapter interprets the returned action.
+9. The shell adapter either restores the original buffer, replaces the full buffer, or replaces the full buffer and executes it.
 
-This model is intentionally simple for MVP. It makes failure handling easier, keeps shell adapters small, and provides a clean transition path if the backend later becomes long-lived. The contract between shell adapter and widget should be treated as a stable logical interface even if the underlying transport changes later.
+This model is intentionally simple for MVP. It makes failure handling easier, keeps shell adapters small, and keeps JSON handling out of shell code. The contract between shell adapter and widget should still be treated as a stable logical interface even if the physical transport changes later.
 
 ## Responsibility split
 
@@ -136,17 +137,17 @@ If the original shell buffer is multiline, it is passed through as-is and displa
 
 ## Transport and protocol
 
-MVP uses a single-request, single-response JSON protocol over `stdin` and `stdout`.
+MVP uses shell bridge modes rather than direct shell-side JSON transport.
 
 Requirements:
 
-* the shell adapter writes one complete JSON request to the widget process `stdin`
-* the widget writes one complete JSON response to `stdout`
-* the protocol must include an explicit version field
-* malformed output is treated as failure
+* the shell adapter launches the widget with a shell-specific bridge mode such as `zsh-bridge` or `fish-bridge`
+* shell-local state is passed via environment variables
+* the bridge returns shell-safe assignments
+* malformed bridge output is treated as failure
 * non-zero exit status is treated as failure
 
-JSON is chosen for MVP because it minimizes Fish/Zsh integration overhead and is easy to inspect while debugging. This is a pragmatic choice rather than a statement that JSON is the permanent long-term transport.
+Inside the widget process, the logical request and response shapes still correspond to the protocol objects documented in `protocol.md`. The shell bridge is an adaptation layer around those objects rather than a separate product model.
 
 The protocol should still be treated as transport-agnostic. A future daemon or RPC layer should be able to reuse the same logical message shape even if the physical transport changes.
 
@@ -154,7 +155,7 @@ The protocol should still be treated as transport-agnostic. A future daemon or R
 
 The shell integration request should include, at minimum:
 
-* `version`
+* `schema_version`
 * `shell`
 * `original_buffer`
 * `prompt_text`
@@ -182,7 +183,7 @@ Action semantics:
 
 Recoverable problems should be surfaced while the widget is still running, as part of the widget UI, not as a separate response action. In particular, transient request failures, parsing issues, or empty-result cases should appear in the widget header or equivalent status area if the widget is still alive and interactive.
 
-Hard failures are out-of-band. If the widget exits non-zero, times out, or returns malformed JSON, the shell adapter treats that as process failure rather than as a normal protocol result.
+Hard failures are out-of-band. If the widget exits non-zero, times out, or returns malformed bridge output, the shell adapter treats that as process failure rather than as a normal protocol result.
 
 ## Buffer replacement and execution semantics
 

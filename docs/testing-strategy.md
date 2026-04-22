@@ -148,6 +148,7 @@ Required manual cases:
 * malformed provider output visible as recoverable widget error
 * multiline prompt seeding
 * telemetry disabled configuration
+* terminal color and selection rendering in a real terminal environment
 
 Manual QA should verify the user-facing behavior of real shell sessions, especially places where keybindings, shell redraw, and execution behavior are hard to simulate faithfully in automated tests.
 
@@ -203,6 +204,7 @@ The implementation should support:
 * deterministic simulation of provider failure cases
 * deterministic simulation of stale async responses
 * shell adapter tests that do not require live remote inference
+* debug tooling that helps distinguish terminal capability issues from normal UI bugs
 
 Observability should help explain failures without making tests depend on fragile incidental log output.
 

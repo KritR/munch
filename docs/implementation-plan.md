@@ -1,437 +1,281 @@
-# Implementation Plan
+# Implementation Status
 
 ## Purpose
 
-This document translates the current design set into a practical implementation path for MVP.
+This document tracks how the current implementation of `munch` aligns with the design docs.
 
-It covers:
+It replaces the earlier pre-build implementation roadmap. The project now has a working shell bridge, a live Bubble Tea UI, provider-backed suggestions, and local safety confirmation, so the useful question is no longer "what should we build first?" but:
 
-* recommended implementation phases
-* suggested Go package and binary boundaries
-* environment setup prerequisites
-* where manual testing is required
-* open assumptions that should be validated during implementation
+* what is already implemented
+* what is partially implemented
+* where the code has intentionally diverged from the original plan
+* what should be built next
 
-This plan assumes:
+This document should be updated as implementation reality changes.
 
-* the application is implemented in Go
-* the first remote provider is Cerebras
+## Current implementation snapshot
 
-## Implementation goals
-
-The implementation plan should optimize for:
-
-* proving the shell boundary early
-* keeping component boundaries aligned with the design docs
-* enabling local testing before real provider integration
-* introducing remote/provider complexity only after the runtime works locally
-* preserving a path to iterate safely through tests and manual shell verification
-
-## Recommended execution strategy
-
-Build the MVP as a sequence of vertical slices rather than trying to implement every subsystem at once.
-
-Recommended order:
-
-1. prove shell launch and result application
-2. add the widget runtime skeleton and protocol types
-3. add local config loading and logging
-4. add a fake suggestion pipeline
-5. add real provider integration
-6. add safety evaluation and confirmation
-7. harden with automated and manual testing
-
-The highest-risk surface is still shell integration. That should be validated before investing heavily in prompt/provider logic.
-
-## Suggested Go project shape
-
-The repo currently has no code, so the initial layout can be kept clean.
-
-Suggested structure:
+Current code layout:
 
 ```text
 /cmd
   /munch-widget
-  /munch-dev
+  /bt-debug
 /internal
-  /config
-  /protocol
-  /runtime
-  /shell
+  /app
+  /bridge
     /zsh
     /fish
-  /suggest
+  /config
+  /context
+  /prompting
+  /protocol
   /provider
     /cerebras
+    /fake
+  /runtime
   /safety
-  /context
-  /telemetry
-/testdata
+  /suggest
+  /ui
+/shell
+  munch.zsh
+  munch.fish
 /docs
 ```
 
-Suggested ownership:
+Key runtime pieces currently exist:
 
-* `cmd/munch-widget`
-  The main widget process binary invoked by shell adapters.
-* `cmd/munch-dev`
-  Optional helper binary for local development, fixture playback, or protocol testing.
-* `internal/protocol`
-  Request and response types, validation, JSON encode/decode helpers.
-* `internal/config`
-  TOML loading, defaults, validation, effective settings.
-* `internal/runtime`
-  Session orchestration and state machine implementation.
-* `internal/shell/zsh`
-  Zsh-specific integration helpers or emitted scripts/templates.
-* `internal/shell/fish`
-  Fish-specific integration helpers or emitted scripts/templates.
-* `internal/context`
-  Local context collection and normalization.
-* `internal/suggest`
-  Suggestion engine and prompt construction orchestration.
-* `internal/provider`
-  Provider-neutral interfaces.
-* `internal/provider/cerebras`
-  First concrete provider client implementation.
-* `internal/safety`
-  Local risk heuristics and confirmation policy mapping.
-* `internal/telemetry`
-  Structured logs and telemetry event emission.
+* shell bridge modes for Zsh and Fish
+* protocol types and validation
+* config loading and defaults
+* shell-aware context collection
+* provider-neutral suggestion engine
+* fake provider and Cerebras provider
+* local safety evaluation and confirmation
+* live Bubble Tea prompt with debounce and async suggestion refresh
 
-## Environment setup
+## Design alignment summary
 
-Before implementation, set up the basic local development environment.
+Overall, the implementation is broadly aligned with the design docs, but there are a few important drifts that should be treated as explicit architectural decisions rather than accidental inconsistencies.
 
-### Required tools
+### Aligned areas
 
-* Go toolchain
-* Zsh
-* Fish
-* a terminal environment where both shells can be launched interactively
+These design areas are implemented in a form that matches the current docs closely:
 
-### Provider setup
+* prompt seeding from the shell buffer
+* thin shell adapters
+* one-shot widget process model
+* provider abstraction
+* local safety as the authoritative confirmation layer
+* shell-aware context collection
+* Bubble Tea-based widget UI
+* Zsh and Fish support
 
-For Cerebras integration, plan for:
+### Intentional drift from the original plan
 
-* an API key stored in an environment variable
-* a config entry naming that environment variable
-* a way to switch between fake provider mode and real provider mode during development
+These are real implementation changes relative to the earlier planning assumptions:
 
-### Local shell setup
+* the shell adapter no longer sends JSON over `stdin` directly
+* bridge modes now use shell-local env vars in and shell-safe assignments out
+* the package layout uses `internal/app`, `internal/bridge`, and `internal/ui` rather than `internal/shell`
+* the live UI now owns debounce and async generation rather than the runtime precomputing suggestions before opening the UI
 
-You will need:
+These changes are good changes, but the docs should describe them explicitly.
 
-* a way to source a generated or hand-written Zsh widget binding during development
-* a way to source a generated or hand-written Fish binding during development
-* a repeatable shell smoke-test setup so you can quickly rerun manual flows after changes
+### Partial implementation areas
 
-### Suggested local config setup
+The following design areas exist but are not complete yet:
 
-Create a developer config file early with:
+* `execute` is supported by the protocol and shell bridges, but is not yet a first-class action in the interactive UI
+* logging exists, but there is no dedicated telemetry package or event model yet
+* packaging and install flow are not formalized
+* the release-hardening phase is incomplete
 
-* `safety.level = "balanced"`
-* `provider.model` set for Cerebras
-* `provider.api_key_env` pointing at your local secret env var
-* `provider.timeout_ms = 4000`
-* `provider.max_retries = 1`
-* `telemetry.enabled = false`
-
-Place it at:
-
-* `$XDG_CONFIG_HOME/munch/config.toml` when `XDG_CONFIG_HOME` is set
-* `~/.config/munch/config.toml` otherwise
+## Phase status
 
 ## Phase 1: Protocol and config foundation
 
-### Goal
+Status: complete
 
-Get the non-UI boundaries stable first.
+Implemented:
 
-### Deliverables
-
-* Go types for `ShellInvocationRequest` and `ShellInvocationResponse`
-* JSON encode/decode and validation
-* config loader with defaults and warnings
-* request ID generation
-* structured logging baseline
-
-### Automated testing
-
-Add tests for:
-
-* valid and invalid protocol payloads
-* enum validation
-* conditional `command` requirements
-* unknown field tolerance
-* config defaulting and fallback behavior
-
-### Manual testing
-
-No shell testing required yet if this phase stays library-only.
+* `internal/protocol`
+* request/response validation
+* config defaults and TOML loading
+* request IDs
+* quiet-by-default logging with optional file logging
 
 ## Phase 2: Shell boundary proof of concept
 
-### Goal
+Status: complete
 
-Prove that shell adapters can launch the Go widget binary and safely apply `cancel`, `insert`, and `execute`.
+Implemented:
 
-### Deliverables
+* Zsh shell bridge
+* Fish shell bridge
+* `cancel`, `insert`, and `execute` handling at the shell boundary
+* bridge tests for both shells
 
-* minimal `munch-widget` binary
-* Zsh adapter prototype
-* Fish adapter prototype
-* hardcoded or fixture-driven final actions
+Important note:
 
-At this stage, the widget does not need real suggestion generation.
+The original plan assumed JSON request/response transport directly between shell adapters and the widget process. The real implementation now uses shell bridge modes:
 
-### Success criteria
+* env vars carry shell-local input into the widget
+* shell-safe assignments are emitted back to the shell
 
-* shell launches widget process
-* shell sends JSON request
-* widget returns JSON response
-* `cancel` restores original buffer
-* `insert` replaces full buffer
-* `execute` replaces and runs
-
-### Automated testing
-
-Add tests for:
-
-* request creation from shell-local state
-* JSON request/response process boundary
-* response handling for `cancel`, `insert`, and `execute`
-* malformed widget response fallback
-
-### Manual testing
-
-Required:
-
-* Zsh cancel flow
-* Zsh insert flow
-* Zsh execute flow
-* Fish cancel flow
-* Fish insert flow
-* Fish execute flow
-* multiline seeded prompt passthrough
-
-This is the first mandatory manual test phase. Real shell behavior should be checked before moving on.
+This should now be treated as the MVP shell transport design.
 
 ## Phase 3: Runtime skeleton and fake suggestions
 
-### Goal
+Status: complete
 
-Build the widget runtime and state machine without depending on a real provider.
+Implemented:
 
-### Deliverables
+* runtime session model
+* fake provider path
+* live editable prompt UI
+* debounce and stale-result suppression
+* loading, empty, and recoverable error states in the UI
 
-* runtime session object
-* state machine implementation
-* prompt seeding behavior
-* debounce handling
-* fixture or fake suggestion engine
-* suggestion selection flow
-* terminal final action creation
+Important note:
 
-### Automated testing
-
-Add tests for:
-
-* state transitions
-* stale response suppression
-* empty results flow
-* recoverable error metadata behavior
-* `Completing` and `Closed` behavior
-
-### Manual testing
-
-Required:
-
-* seeded prompt editing
-* loading indicator behavior
-* empty result state
-* recoverable error shown in header
-* cancel from different runtime states
+The implementation moved debounce and async generation into the UI layer rather than having the runtime precompute suggestions before the UI opens. This is the right architecture for the current UX and should be reflected in the docs.
 
 ## Phase 4: Prompt construction and provider abstraction
 
-### Goal
+Status: complete
 
-Introduce the real provider boundary without tying the rest of the runtime to Cerebras-specific details.
+Implemented:
 
-### Deliverables
-
-* provider-neutral request interface
-* provider-neutral response payload
-* prompt assembly from `prompting.md`
-* provider client interface
-* fake provider implementation for tests
-
-### Automated testing
-
-Add tests for:
-
-* prompt assembly from curated context
-* schema/output expectations
-* provider client interface behavior with fakes
-* advisory risk preservation
-
-### Manual testing
-
-Minimal manual testing here unless prompt rendering needs direct inspection during development.
+* provider-neutral request/response interface
+* prompt construction from `prompting.md`
+* fake provider implementation
+* provider-backed suggestion engine
 
 ## Phase 5: Cerebras provider integration
 
-### Goal
+Status: complete
 
-Add the first live provider implementation behind the provider client boundary.
-
-### Deliverables
+Implemented:
 
 * `internal/provider/cerebras`
-* request translation for Cerebras
-* JSON structured-output handling
+* structured JSON output handling
 * timeout handling
-* single retry on transient failures
-* single retry on malformed structured output
-
-### Automated testing
-
-Use mocks/fakes for most tests:
-
-* success path
-* timeout
-* auth/config failure
-* malformed structured output
-* retry once on transient failure
-* retry once on malformed structured output
-
-### Manual testing
-
-Required:
-
-* real-provider happy path with Cerebras
-* provider timeout surfaced as recoverable widget error
-* malformed output path if reproducible in a controlled dev mode
-* invalid or missing API key behavior
-
-### Environment assumptions to validate
-
-This is the first place where implementation assumptions need confirmation:
-
-* which Cerebras API shape best supports strict JSON output
-* whether Cerebras behavior is reliable enough without few-shot examples
-* whether one retry is sufficient in practice
-
-If these assumptions fail, update `provider-integration.md` and `prompting.md` rather than patching around the issue silently in code.
+* retry behavior
+* real manual provider smoke testing
 
 ## Phase 6: Safety evaluation and confirmation
 
-### Goal
+Status: complete
 
-Apply local safety after provider suggestions and before final action.
+Implemented:
 
-### Deliverables
+* local risk classifier
+* policy mapping to `requires_confirmation`
+* confirmation UI flow
+* confirmation reason strings
 
-* heuristic risk classifier
-* policy mapping from risk to `requires_confirmation`
-* confirmation UI/state
-* concise reason strings for confirmation
+Gap:
 
-### Automated testing
+* confirmation currently gates insert flows in the UI, but there is not yet a separate interactive execute path
 
-Add tests for:
+## Phase 7: Hardening
 
-* `low` / `medium` / `high` classification
-* `low` / `balanced` / `strict` policy mapping
-* `sudo` classification
-* redirection bump behavior
-* confirmation-required state transitions
+Status: in progress
 
-### Manual testing
+Implemented so far:
 
-Required:
+* protocol tests
+* config tests
+* bridge tests
+* context parsing tests
+* provider tests
+* runtime tests
+* safety tests
+* UI interaction tests
 
-* read-only command with no confirmation
-* medium-risk command requiring confirmation under `balanced`
-* high-risk command requiring confirmation
-* cancel from confirmation
-* execute after confirmation
+Still needed:
 
-## Phase 7: Harden the implementation
-
-### Goal
-
-Bring the implementation up to the release bar defined in `testing-strategy.md`.
-
-### Deliverables
-
-* full contract test suite
-* shell smoke tests
-* runtime integration tests
-* provider mock coverage
+* higher-level app/session integration tests
+* fuller failure-path coverage around provider and UI state interactions
 * release checklist
+* explicit install/setup docs for real users
 
-### Manual testing
+## Completed milestones
 
-Run the manual matrix from `testing-strategy.md` as a full pass.
-
-## Recommended first milestone
-
-The first implementation milestone should be intentionally narrow.
-
-### Milestone 1
-
-Deliver:
+The original Milestone 1 is fully complete:
 
 * protocol types and validation
 * config loading
-* a minimal widget binary
+* minimal widget binary
 * Zsh adapter
 * Fish adapter
-* correct handling of `cancel`, `insert`, and `execute`
+* correct `cancel`, `insert`, and `execute` handling at the shell boundary
 
-Do not include yet:
+The project is now well past Milestone 1.
 
-* real provider integration
-* real suggestion generation
-* safety confirmation
+## Current gaps
 
-The purpose of Milestone 1 is to prove that the shell/process contract is solid.
+The highest-value remaining gaps are:
 
-## Manual testing checkpoints
+1. interactive `execute` action
+2. packaging and install flow
+3. telemetry/event model
+4. hardening and release checks
 
-Manual testing is unavoidable at these points:
+## Recommended next phases
 
-* after first Zsh adapter integration
-* after first Fish adapter integration
-* after runtime UI state flow exists
-* after real Cerebras integration lands
-* after safety confirmation lands
-* before any release candidate
+## Phase 8: Action completion and UX polish
 
-If a change affects shell redraw, buffer restoration, or execute behavior, re-run shell manual tests even if unit tests still pass.
+Recommended deliverables:
+
+* first-class `execute` action in the interactive UI
+* clearer key help for insert vs execute
+* cleanup of any remaining terminal residue edge cases
+* polish around selected-row rendering and confirmation presentation
+
+## Phase 9: Packaging and install
+
+Recommended deliverables:
+
+* install instructions for Zsh and Fish
+* shell init snippets
+* `make install` or equivalent local install workflow
+* config bootstrap guidance
+
+## Phase 10: Observability and supportability
+
+Recommended deliverables:
+
+* proper `internal/telemetry`
+* structured event model
+* better diagnostics for provider and UI issues
+* debug tooling that does not leak into normal shell output
+
+## Manual testing status
+
+Manual testing has already validated:
+
+* Zsh insert/cancel/execute shell behavior
+* Fish insert/cancel/execute shell behavior
+* real Cerebras integration
+* live prompt editing
+* confirmation flow
+* UI color behavior in real terminals
+
+Still worth validating explicitly as features land:
+
+* execute from the interactive UI once implemented
+* provider timeout and malformed output behavior in the current live UI
+* release-level smoke tests after packaging/install work
 
 ## Open implementation assumptions
 
-The following assumptions are reasonable now, but should be revisited once code exists:
+The following assumptions are still active and should be revisited as the MVP matures:
 
-* a single Go widget binary is sufficient for MVP
-* shell bindings can remain thin and mostly static
-* the widget UI can be implemented cleanly in Go without introducing a second runtime
-* Cerebras can reliably return the canonical JSON shape with the prompting strategy in `prompting.md`
-* request/response JSON over `stdin` and `stdout` remains simple enough not to require a helper subprocess layer
+* one Go widget binary remains sufficient
+* bridge-mode shell transport remains simpler than reintroducing direct shell-side JSON handling
+* Bubble Tea remains the right UI runtime for the product
+* Cerebras continues to behave reliably with the current prompting and structured-output strategy
 
-If one of these turns out false during implementation, update the relevant design docs before expanding the workaround into more code.
-
-## Recommended next step
-
-Start with Phase 1 and Phase 2 together:
-
-* scaffold the Go module
-* implement `internal/protocol`
-* implement `internal/config`
-* create a minimal `cmd/munch-widget`
-* wire one shell adapter path end to end
-
-Zsh is the best first adapter because it gives you a fast way to prove the contract, then Fish can follow against the same widget binary.
+If any of these change, update the relevant design docs rather than letting the code drift silently.

@@ -83,6 +83,7 @@ This separation is important because the shell adapter must remain trustworthy a
 The MVP architecture uses the following first-class components:
 
 * shell adapter
+* shell bridge
 * widget runtime
 * context collector
 * suggestion engine
@@ -96,6 +97,7 @@ The cache exists as supporting infrastructure rather than as a top-level control
 ```mermaid
 flowchart TD
     Shell[Shell Adapter]
+    Bridge[Shell Bridge]
     Runtime[Widget Runtime]
     Context[Context Collector]
     Suggest[Suggestion Engine]
@@ -105,7 +107,8 @@ flowchart TD
     Telemetry[Logging / Telemetry]
     Cache[(Cache)]
 
-    Shell --> Runtime
+    Shell --> Bridge
+    Bridge --> Runtime
     Runtime --> Context
     Runtime --> Suggest
     Runtime --> Config
@@ -131,6 +134,12 @@ flowchart TD
 The shell adapter is the shell-specific boundary layer. It captures shell-local state, launches the widget process, exchanges request and response payloads, and applies the final action back into the shell.
 
 The shell adapter does not own product logic.
+
+### Shell bridge
+
+The shell bridge is the bridge-mode entrypoint inside the widget binary. It translates shell-local environment state into runtime request objects and translates final actions back into shell-safe assignments.
+
+This keeps JSON and runtime concerns out of shell scripts while preserving a thin shell boundary.
 
 ### Widget runtime
 
@@ -197,7 +206,7 @@ flowchart LR
     WidgetProc --> ShellProc
 ```
 
-The shell process hosts the shell adapter. The shell adapter launches a fresh widget process for each invocation. That widget process contains the shared runtime and its first-class components. The provider client inside the widget process handles remote model calls.
+The shell process hosts the shell adapter. The shell adapter launches a fresh widget process for each invocation. That widget process contains the shell bridge, shared runtime, and its first-class components. The provider client inside the widget process handles remote model calls.
 
 This process model is intentionally simple for MVP:
 

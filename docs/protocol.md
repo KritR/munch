@@ -26,7 +26,7 @@ The protocol should satisfy the following goals:
 
 * remain simple enough for thin shell adapters
 * be explicit and versioned
-* stay logically transport-agnostic even though MVP uses `stdin` and `stdout`
+* stay logically transport-agnostic even though MVP uses bridge-mode transport
 * be straightforward to validate
 * support additive forward-compatible change
 * keep the shell response surface minimal
@@ -54,7 +54,10 @@ The shell integration boundary is the contract between:
 * the shell adapter
 * the widget runtime
 
-In MVP, this is the only cross-process protocol that the shell adapter needs to understand.
+In MVP, this boundary is implemented through shell-specific bridge modes rather than direct shell-side JSON parsing. The logical request and response objects documented here are still the source of truth, but the shell scripts communicate with the widget through:
+
+* environment variables into the bridge
+* shell-safe assignments out of the bridge
 
 ### Shared domain payload boundary
 
@@ -68,12 +71,14 @@ These payloads are documented here so that:
 
 ## Transport model
 
-In MVP, the shell integration protocol uses:
+In MVP, the shell integration protocol is adapted through shell bridge modes.
 
-* one JSON request on `stdin`
-* one JSON response on `stdout`
+The widget still operates on the same logical message shapes defined in this document, but the shell-facing transport is:
 
-This is a transport choice, not the conceptual definition of the protocol itself.
+* shell-local state passed in via environment variables
+* bridge-generated shell-safe assignments returned on `stdout`
+
+Direct JSON request/response exchange still exists inside the widget and remains useful for non-bridge session mode and tests, but shell adapters do not parse JSON directly.
 
 The logical message shapes defined in this document should remain reusable if the implementation later moves to:
 
