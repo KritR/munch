@@ -78,8 +78,9 @@ func TestSelectorEnterRequiresConfirmationFirst(t *testing.T) {
 
 func TestSelectorConfirmingEnterConfirms(t *testing.T) {
 	model := selectorModel{
-		input:      textinput.New(),
-		confirming: true,
+		input:         textinput.New(),
+		confirming:    true,
+		pendingAction: protocol.ActionInsert,
 		suggestions: []protocol.Suggestion{
 			{Command: "rm -rf build", Description: "Delete build", RequiresConfirmation: true},
 		},
@@ -88,6 +89,62 @@ func TestSelectorConfirmingEnterConfirms(t *testing.T) {
 	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	got := next.(selectorModel)
 	if got.selection.Action != protocol.ActionInsert {
+		t.Fatalf("unexpected action: %s", got.selection.Action)
+	}
+}
+
+func TestSelectorCtrlEExecutesSelectedSuggestion(t *testing.T) {
+	model := selectorModel{
+		input: textinput.New(),
+		suggestions: []protocol.Suggestion{
+			{Command: "rg --files -t go", Description: "List Go files"},
+		},
+	}
+
+	next, cmd := model.Update(tea.KeyMsg{Type: tea.KeyCtrlE})
+	if cmd == nil {
+		t.Fatal("expected quit command")
+	}
+	got := next.(selectorModel)
+	if got.selection.Action != protocol.ActionExecute {
+		t.Fatalf("unexpected action: %s", got.selection.Action)
+	}
+	if got.selection.Command != "rg --files -t go" {
+		t.Fatalf("unexpected command: %q", got.selection.Command)
+	}
+}
+
+func TestSelectorExecuteRequiresConfirmationFirst(t *testing.T) {
+	model := selectorModel{
+		input: textinput.New(),
+		suggestions: []protocol.Suggestion{
+			{Command: "rm -rf build", Description: "Delete build", RequiresConfirmation: true},
+		},
+	}
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyCtrlE})
+	got := next.(selectorModel)
+	if !got.confirming {
+		t.Fatal("expected confirming state")
+	}
+	if got.pendingAction != protocol.ActionExecute {
+		t.Fatalf("unexpected pending action: %s", got.pendingAction)
+	}
+}
+
+func TestSelectorConfirmingEnterPreservesExecuteAction(t *testing.T) {
+	model := selectorModel{
+		input:         textinput.New(),
+		confirming:    true,
+		pendingAction: protocol.ActionExecute,
+		suggestions: []protocol.Suggestion{
+			{Command: "rm -rf build", Description: "Delete build", RequiresConfirmation: true},
+		},
+	}
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	got := next.(selectorModel)
+	if got.selection.Action != protocol.ActionExecute {
 		t.Fatalf("unexpected action: %s", got.selection.Action)
 	}
 }
@@ -134,5 +191,29 @@ func TestPromptEditSchedulesNewVersionAndLoading(t *testing.T) {
 	}
 	if got.input.Value() != "a" {
 		t.Fatalf("unexpected prompt value: %q", got.input.Value())
+	}
+}
+
+func TestExecuteShortcutHintGhostty(t *testing.T) {
+	if got := executeShortcutHint("ghostty", "xterm-ghostty"); got != "alt+enter/ctrl+e" {
+		t.Fatalf("unexpected execute hint: %q", got)
+	}
+}
+
+func TestExecuteShortcutHintDefault(t *testing.T) {
+	if got := executeShortcutHint("Apple_Terminal", "xterm-256color"); got != "ctrl+e" {
+		t.Fatalf("unexpected execute hint: %q", got)
+	}
+}
+
+func TestExecuteShortcutHintWezTermByProgram(t *testing.T) {
+	if got := executeShortcutHint("WezTerm", "wezterm"); got != "alt+enter/ctrl+e" {
+		t.Fatalf("unexpected execute hint: %q", got)
+	}
+}
+
+func TestExecuteShortcutHintGhosttyByTerm(t *testing.T) {
+	if got := executeShortcutHint("", "xterm-ghostty"); got != "alt+enter/ctrl+e" {
+		t.Fatalf("unexpected execute hint: %q", got)
 	}
 }

@@ -40,18 +40,20 @@ type selectorModel struct {
 	ctx         munchctx.Normalized
 	safetyLevel string
 	styles      uiStyles
+	executeHint string
 
-	input       textinput.Model
-	spinner     spinner.Model
-	selected    int
-	confirming  bool
-	selection   Selection
-	width       int
-	height      int
-	loading     bool
-	err         error
-	version     int
-	suggestions []protocol.Suggestion
+	input         textinput.Model
+	spinner       spinner.Model
+	selected      int
+	confirming    bool
+	pendingAction protocol.Action
+	selection     Selection
+	width         int
+	height        int
+	loading       bool
+	err           error
+	version       int
+	suggestions   []protocol.Suggestion
 }
 
 type uiStyles struct {
@@ -109,6 +111,7 @@ func SelectSuggestion(prompt string, engine suggest.Engine, ctx munchctx.Normali
 
 	renderer := lipgloss.NewRenderer(tty)
 	styles := newUIStyles(renderer)
+	executeHint := executeShortcutHint(os.Getenv("TERM_PROGRAM"), os.Getenv("TERM"))
 
 	input := textinput.New()
 	input.SetValue(prompt)
@@ -130,6 +133,7 @@ func SelectSuggestion(prompt string, engine suggest.Engine, ctx munchctx.Normali
 		ctx:         ctx,
 		safetyLevel: safetyLevel,
 		styles:      styles,
+		executeHint: executeHint,
 		input:       input,
 		spinner:     spin,
 		version:     1,
@@ -137,6 +141,7 @@ func SelectSuggestion(prompt string, engine suggest.Engine, ctx munchctx.Normali
 		selection: Selection{
 			Action: protocol.ActionCancel,
 		},
+		pendingAction: protocol.ActionInsert,
 	}
 
 	program := tea.NewProgram(
@@ -224,18 +229,9 @@ func (m selectorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "enter":
-			if len(m.suggestions) == 0 || m.loading {
-				return m, nil
-			}
-			if m.suggestions[m.selected].RequiresConfirmation {
-				m.confirming = true
-				return m, nil
-			}
-			m.selection = Selection{
-				Action:  protocol.ActionInsert,
-				Command: m.suggestions[m.selected].Command,
-			}
-			return m, tea.Quit
+			return m.prepareSuggestionAction(protocol.ActionInsert)
+		case "alt+enter", "ctrl+e":
+			return m.prepareSuggestionAction(protocol.ActionExecute)
 		}
 
 		prevValue := m.input.Value()
@@ -257,6 +253,7 @@ func (m selectorModel) updateConfirming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c", "esc", "n":
 		m.confirming = false
+		m.pendingAction = protocol.ActionInsert
 		return m, nil
 	case "y", "enter":
 		if len(m.suggestions) == 0 {
@@ -264,7 +261,7 @@ func (m selectorModel) updateConfirming(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.selection = Selection{
-			Action:  protocol.ActionInsert,
+			Action:  m.pendingAction,
 			Command: m.suggestions[m.selected].Command,
 		}
 		return m, tea.Quit
@@ -288,9 +285,13 @@ func (m selectorModel) View() string {
 		if reason == "" {
 			reason = "This command requires confirmation."
 		}
+		actionLabel := "Insert"
+		if m.pendingAction == protocol.ActionExecute {
+			actionLabel = "Execute"
+		}
 		lines = append(lines,
 			"",
-			m.styles.activeStyle.Render("Confirm Command"),
+			m.styles.activeStyle.Render("Confirm "+actionLabel),
 			reason,
 			"",
 			m.styles.rowStyle.Render(suggestion.Command),
@@ -304,7 +305,7 @@ func (m selectorModel) View() string {
 		if !m.loading {
 			lines = append(lines, "", m.styles.hintStyle.Render("No suggestions yet. Keep typing or wait for results."))
 		}
-		lines = append(lines, "", m.styles.hintStyle.Render("up/down: move • enter: insert • esc: cancel"))
+		lines = append(lines, "", m.styles.hintStyle.Render("up/down: move • enter: insert • "+m.executeHint+": execute • esc: cancel"))
 		return lipgloss.JoinVertical(lipgloss.Left, lines...)
 	}
 
@@ -320,7 +321,7 @@ func (m selectorModel) View() string {
 		}
 	}
 
-	lines = append(lines, "", m.styles.hintStyle.Render("type to edit • up/down: move • enter: insert • esc: cancel"))
+	lines = append(lines, "", m.styles.hintStyle.Render("type to edit • up/down: move • enter: insert • "+m.executeHint+": execute • esc: cancel"))
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
@@ -358,6 +359,22 @@ func (m selectorModel) renderSelectedSuggestion(suggestion protocol.Suggestion) 
 		Render(block)
 }
 
+func (m selectorModel) prepareSuggestionAction(action protocol.Action) (tea.Model, tea.Cmd) {
+	if len(m.suggestions) == 0 || m.loading {
+		return m, nil
+	}
+	m.pendingAction = action
+	if m.suggestions[m.selected].RequiresConfirmation {
+		m.confirming = true
+		return m, nil
+	}
+	m.selection = Selection{
+		Action:  action,
+		Command: m.suggestions[m.selected].Command,
+	}
+	return m, tea.Quit
+}
+
 func (m selectorModel) renderHeight() int {
 	view := m.View()
 	if view == "" {
@@ -393,4 +410,18 @@ func clearRenderedUI(f *os.File, height int) {
 		}
 	}
 	fmt.Fprint(f, "\r")
+}
+
+func executeShortcutHint(termProgram, term string) string {
+	switch strings.ToLower(termProgram) {
+	case "ghostty", "iterm.app", "wezterm", "vscode", "hyper":
+		return "alt+enter/ctrl+e"
+	}
+
+	switch strings.ToLower(term) {
+	case "xterm-ghostty", "wezterm", "xterm-kitty":
+		return "alt+enter/ctrl+e"
+	default:
+		return "ctrl+e"
+	}
 }
