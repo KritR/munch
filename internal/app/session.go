@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/krithikr/munch/internal/config"
+	munchctx "github.com/krithikr/munch/internal/context"
 	"github.com/krithikr/munch/internal/protocol"
 	"github.com/krithikr/munch/internal/provider"
 	"github.com/krithikr/munch/internal/provider/cerebras"
@@ -28,18 +29,22 @@ func RunSession(req protocol.ShellInvocationRequest, configPath string, devMode 
 	engine := buildEngine(cfg)
 	slog.Debug("selected engine", "engine", engine.Name())
 
-	session := runtime.NewSessionWithSafetyLevel(req, engine, cfg.Safety.Level)
+	ctx := munchctx.NewCollector().Collect(req.Shell)
+	session := runtime.NewSessionWithContextAndSafetyLevel(req, engine, ctx, cfg.Safety.Level)
 	session.Start()
-	session.UpdatePrompt(req.PromptText)
-	if err := session.GenerateWithError(); err != nil {
-		slog.Warn("generation failed", "error", err)
-	} else {
-		slog.Debug("generation succeeded")
-	}
-	slog.Debug("generated suggestions", "count", len(session.Suggestions()))
 
 	action := protocol.Action(os.Getenv("MUNCH_STUB_ACTION"))
 	if action == "" {
+		if devMode != runtime.DevModeNone {
+			session.UpdatePrompt(req.PromptText)
+			if err := session.GenerateWithError(); err != nil {
+				slog.Warn("generation failed", "error", err)
+			} else {
+				slog.Debug("generation succeeded")
+			}
+			slog.Debug("generated suggestions", "count", len(session.Suggestions()))
+		}
+
 		if autoAction, autoCommand, ok := runtime.ResolveDevAction(devMode, session.Suggestions(), req.PromptText); ok {
 			slog.Debug("resolved dev action", "action", autoAction, "command", autoCommand)
 			resp, err := session.PrepareAction(autoAction, autoCommand)
@@ -50,7 +55,7 @@ func RunSession(req protocol.ShellInvocationRequest, configPath string, devMode 
 			return resp, nil
 		}
 
-		selection, err := ui.SelectSuggestion(req.PromptText, session.Suggestions())
+		selection, err := ui.SelectSuggestion(req.PromptText, engine, ctx, cfg.Safety.Level)
 		if err != nil {
 			return protocol.ShellInvocationResponse{}, err
 		}
@@ -67,6 +72,13 @@ func RunSession(req protocol.ShellInvocationRequest, configPath string, devMode 
 	switch action {
 	case protocol.ActionCancel:
 	case protocol.ActionInsert, protocol.ActionExecute:
+		session.UpdatePrompt(req.PromptText)
+		if err := session.GenerateWithError(); err != nil {
+			slog.Warn("generation failed", "error", err)
+		} else {
+			slog.Debug("generation succeeded")
+		}
+		slog.Debug("generated suggestions", "count", len(session.Suggestions()))
 		command = os.Getenv("MUNCH_STUB_COMMAND")
 		if command == "" {
 			command = suggest.FirstCommand(session.Suggestions(), req.PromptText)

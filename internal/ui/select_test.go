@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/krithikr/munch/internal/protocol"
@@ -10,7 +11,7 @@ import (
 
 func TestSelectorEnterReturnsSelectedSuggestion(t *testing.T) {
 	model := selectorModel{
-		prompt: "find todos",
+		input: textinput.New(),
 		suggestions: []protocol.Suggestion{
 			{Command: "rg -n TODO .", Description: "Search TODOs"},
 			{Command: "grep -R TODO .", Description: "Fallback grep"},
@@ -32,12 +33,7 @@ func TestSelectorEnterReturnsSelectedSuggestion(t *testing.T) {
 }
 
 func TestSelectorEscCancels(t *testing.T) {
-	model := selectorModel{
-		prompt: "find todos",
-		suggestions: []protocol.Suggestion{
-			{Command: "rg -n TODO .", Description: "Search TODOs"},
-		},
-	}
+	model := selectorModel{input: textinput.New()}
 
 	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	got := next.(selectorModel)
@@ -48,6 +44,7 @@ func TestSelectorEscCancels(t *testing.T) {
 
 func TestSelectorMovesDown(t *testing.T) {
 	model := selectorModel{
+		input: textinput.New(),
 		suggestions: []protocol.Suggestion{
 			{Command: "one"},
 			{Command: "two"},
@@ -63,7 +60,7 @@ func TestSelectorMovesDown(t *testing.T) {
 
 func TestSelectorEnterRequiresConfirmationFirst(t *testing.T) {
 	model := selectorModel{
-		prompt: "delete build",
+		input: textinput.New(),
 		suggestions: []protocol.Suggestion{
 			{Command: "rm -rf build", Description: "Delete build", RequiresConfirmation: true, ConfirmationReason: "This command may delete files."},
 		},
@@ -81,7 +78,7 @@ func TestSelectorEnterRequiresConfirmationFirst(t *testing.T) {
 
 func TestSelectorConfirmingEnterConfirms(t *testing.T) {
 	model := selectorModel{
-		prompt:     "delete build",
+		input:      textinput.New(),
 		confirming: true,
 		suggestions: []protocol.Suggestion{
 			{Command: "rm -rf build", Description: "Delete build", RequiresConfirmation: true},
@@ -92,5 +89,50 @@ func TestSelectorConfirmingEnterConfirms(t *testing.T) {
 	got := next.(selectorModel)
 	if got.selection.Action != protocol.ActionInsert {
 		t.Fatalf("unexpected action: %s", got.selection.Action)
+	}
+}
+
+func TestGenerateResultIgnoresStaleVersion(t *testing.T) {
+	model := selectorModel{
+		input:   textinput.New(),
+		version: 3,
+		suggestions: []protocol.Suggestion{
+			{Command: "current"},
+		},
+	}
+
+	next, _ := model.Update(generateResultMsg{
+		version: 2,
+		suggestions: []protocol.Suggestion{
+			{Command: "stale"},
+		},
+	})
+	got := next.(selectorModel)
+	if got.suggestions[0].Command != "current" {
+		t.Fatalf("expected stale result to be ignored, got %#v", got.suggestions)
+	}
+}
+
+func TestPromptEditSchedulesNewVersionAndLoading(t *testing.T) {
+	input := textinput.New()
+	input.Focus()
+	model := selectorModel{
+		input:   input,
+		version: 1,
+	}
+
+	next, cmd := model.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
+	if cmd == nil {
+		t.Fatal("expected debounce command")
+	}
+	got := next.(selectorModel)
+	if got.version != 2 {
+		t.Fatalf("expected version to increment, got %d", got.version)
+	}
+	if !got.loading {
+		t.Fatal("expected loading to be set immediately on prompt edit")
+	}
+	if got.input.Value() != "a" {
+		t.Fatalf("unexpected prompt value: %q", got.input.Value())
 	}
 }

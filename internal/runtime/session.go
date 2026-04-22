@@ -33,17 +33,21 @@ type Session struct {
 }
 
 func NewSession(req protocol.ShellInvocationRequest, engine suggest.Engine) *Session {
-	return NewSessionWithSafetyLevel(req, engine, "balanced")
+	return NewSessionWithContextAndSafetyLevel(req, engine, munchctx.NewCollector().Collect(req.Shell), "balanced")
 }
 
 func NewSessionWithSafetyLevel(req protocol.ShellInvocationRequest, engine suggest.Engine, safetyLevel string) *Session {
+	return NewSessionWithContextAndSafetyLevel(req, engine, munchctx.NewCollector().Collect(req.Shell), safetyLevel)
+}
+
+func NewSessionWithContextAndSafetyLevel(req protocol.ShellInvocationRequest, engine suggest.Engine, ctx munchctx.Normalized, safetyLevel string) *Session {
 	if engine == nil {
 		engine = suggest.NewFakeEngine()
 	}
 	return &Session{
 		req:         req,
 		engine:      engine,
-		context:     munchctx.CollectBootstrap(),
+		context:     ctx,
 		safetyLevel: safetyLevel,
 		state:       StateInitializing,
 		promptText:  req.PromptText,
@@ -58,6 +62,10 @@ func (s *Session) Suggestions() []protocol.Suggestion {
 	out := make([]protocol.Suggestion, len(s.suggestions))
 	copy(out, s.suggestions)
 	return out
+}
+
+func (s *Session) Context() munchctx.Normalized {
+	return s.context
 }
 
 func (s *Session) Start() {
