@@ -35,10 +35,10 @@ func (e ProviderBackedEngine) Generate(prompt string, ctx munchctx.Normalized) [
 		count = 5
 	}
 
-	rendered := prompting.RenderContext(ctx, prompt, count)
+	rendered := prompting.RenderUserPrompt(ctx, prompt, count)
 	resp, err := client.Generate(provider.GenerationRequest{
-		PromptText:      prompt,
-		RenderedContext: rendered,
+		SystemPrompt:    prompting.CanonicalSystemPrompt,
+		UserPrompt:      rendered,
 		SuggestionCount: count,
 	})
 	if err != nil {

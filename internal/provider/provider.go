@@ -3,8 +3,8 @@ package provider
 import "github.com/krithikr/munch/internal/protocol"
 
 type GenerationRequest struct {
-	PromptText      string
-	RenderedContext string
+	SystemPrompt    string
+	UserPrompt      string
 	SuggestionCount int
 }
 

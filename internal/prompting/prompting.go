@@ -43,11 +43,9 @@ Output a JSON object with this shape:
 
 Return up to the requested number of suggestions. Prefer a smaller number of high-quality suggestions over padding with weak ones.`
 
-func RenderContext(ctx munchctx.Normalized, promptText string, suggestionCount int) string {
+func RenderUserPrompt(ctx munchctx.Normalized, promptText string, suggestionCount int) string {
 	var b strings.Builder
-	b.WriteString("System prompt:\n")
-	b.WriteString(CanonicalSystemPrompt)
-	b.WriteString("\n\nTask:\n")
+	b.WriteString("Task:\n")
 	b.WriteString(promptText)
 	b.WriteString("\n\nContext:\n")
 	b.WriteString(fmt.Sprintf("- cwd: %s\n", ctx.CWD))

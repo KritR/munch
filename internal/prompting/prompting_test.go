@@ -7,7 +7,7 @@ import (
 	munchctx "github.com/krithikr/munch/internal/context"
 )
 
-func TestRenderContextIncludesPromptAndRepoSummary(t *testing.T) {
+func TestRenderUserPromptIncludesPromptAndRepoSummary(t *testing.T) {
 	ctx := munchctx.Normalized{
 		CWD:     "/tmp/project",
 		History: []string{"git status"},
@@ -21,7 +21,7 @@ func TestRenderContextIncludesPromptAndRepoSummary(t *testing.T) {
 		},
 	}
 
-	rendered := RenderContext(ctx, "find logs", 3)
+	rendered := RenderUserPrompt(ctx, "find logs", 3)
 	for _, want := range []string{"find logs", "/tmp/project", "git status", "branch: main", "Requested suggestion count"} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("rendered context missing %q", want)
