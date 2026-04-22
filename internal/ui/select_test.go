@@ -1,37 +1,62 @@
 package ui
 
 import (
-	"bytes"
-	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/krithikr/munch/internal/protocol"
 )
 
-func TestSelectFromTTYCancelsOnEmptyInput(t *testing.T) {
-	selection, err := selectFromTTY("find todos", []protocol.Suggestion{
-		{Command: "rg -n TODO .", Description: "Search TODOs"},
-	}, strings.NewReader("\n"), &bytes.Buffer{})
-	if err != nil {
-		t.Fatalf("selectFromTTY() error = %v", err)
+func TestSelectorEnterReturnsSelectedSuggestion(t *testing.T) {
+	model := selectorModel{
+		prompt: "find todos",
+		suggestions: []protocol.Suggestion{
+			{Command: "rg -n TODO .", Description: "Search TODOs"},
+			{Command: "grep -R TODO .", Description: "Fallback grep"},
+		},
+		selected: 1,
 	}
-	if selection.Action != protocol.ActionCancel {
-		t.Fatalf("unexpected action: %s", selection.Action)
+
+	next, cmd := model.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected quit command")
+	}
+	got := next.(selectorModel)
+	if got.selection.Action != protocol.ActionInsert {
+		t.Fatalf("unexpected action: %s", got.selection.Action)
+	}
+	if got.selection.Command != "grep -R TODO ." {
+		t.Fatalf("unexpected command: %q", got.selection.Command)
 	}
 }
 
-func TestSelectFromTTYSelectsNumber(t *testing.T) {
-	selection, err := selectFromTTY("find todos", []protocol.Suggestion{
-		{Command: "rg -n TODO .", Description: "Search TODOs"},
-		{Command: "grep -R TODO .", Description: "Fallback grep"},
-	}, strings.NewReader("2\n"), &bytes.Buffer{})
-	if err != nil {
-		t.Fatalf("selectFromTTY() error = %v", err)
+func TestSelectorEscCancels(t *testing.T) {
+	model := selectorModel{
+		prompt: "find todos",
+		suggestions: []protocol.Suggestion{
+			{Command: "rg -n TODO .", Description: "Search TODOs"},
+		},
 	}
-	if selection.Action != protocol.ActionInsert {
-		t.Fatalf("unexpected action: %s", selection.Action)
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	got := next.(selectorModel)
+	if got.selection.Action != protocol.ActionCancel {
+		t.Fatalf("unexpected action: %s", got.selection.Action)
 	}
-	if selection.Command != "grep -R TODO ." {
-		t.Fatalf("unexpected command: %q", selection.Command)
+}
+
+func TestSelectorMovesDown(t *testing.T) {
+	model := selectorModel{
+		suggestions: []protocol.Suggestion{
+			{Command: "one"},
+			{Command: "two"},
+		},
+	}
+
+	next, _ := model.Update(tea.KeyMsg{Type: tea.KeyDown})
+	got := next.(selectorModel)
+	if got.selected != 1 {
+		t.Fatalf("unexpected selected index: %d", got.selected)
 	}
 }
