@@ -16,6 +16,8 @@ type model struct {
 	input    textinput.Model
 	spinner  spinner.Model
 	selected int
+	lastKey  string
+	summary  string
 }
 
 var rows = []struct {
@@ -73,6 +75,8 @@ func main() {
 	p := tea.NewProgram(model{
 		input:   input,
 		spinner: spin,
+		lastKey: "<none>",
+		summary: debugSummary(),
 	})
 
 	if _, err := p.Run(); err != nil {
@@ -92,6 +96,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.spinner, cmd = m.spinner.Update(msg)
 		return m, cmd
 	case tea.KeyMsg:
+		m.lastKey = describeKey(msg)
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			return m, tea.Quit
@@ -117,11 +122,14 @@ func (m model) View() string {
 	lines := []string{
 		titleStyle.Render("Bubble Tea Debug"),
 		"",
-		infoStyle.Render(debugSummary()),
+		infoStyle.Render(m.summary),
 		"",
 		titleStyle.Render(m.input.View()),
 		"",
 		lipgloss.JoinHorizontal(lipgloss.Left, m.spinner.View(), " ", infoStyle.Render("Spinner should be colored")),
+		"",
+		titleStyle.Render("Last Key"),
+		infoStyle.Render(m.lastKey),
 		"",
 	}
 
@@ -144,6 +152,17 @@ func (m model) View() string {
 	return strings.Join(lines, "\n")
 }
 
+func describeKey(msg tea.KeyMsg) string {
+	return fmt.Sprintf(
+		"string=%q  type=%v  runes=%q  alt=%t  paste=%t",
+		msg.String(),
+		msg.Type,
+		string(msg.Runes),
+		msg.Alt,
+		msg.Paste,
+	)
+}
+
 func renderSelected(command, description string) string {
 	block := lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -159,13 +178,12 @@ func renderSelected(command, description string) string {
 
 func debugSummary() string {
 	return fmt.Sprintf(
-		"TERM=%s  COLORTERM=%s  TERM_PROGRAM=%s  NO_COLOR=%s  profile=%s  dark-bg=%t",
+		"TERM=%s  COLORTERM=%s  TERM_PROGRAM=%s  NO_COLOR=%s  profile=%s",
 		os.Getenv("TERM"),
 		os.Getenv("COLORTERM"),
 		os.Getenv("TERM_PROGRAM"),
 		os.Getenv("NO_COLOR"),
 		profileName(termenv.EnvColorProfile()),
-		termenv.HasDarkBackground(),
 	)
 }
 
