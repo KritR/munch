@@ -86,7 +86,6 @@ These changes are good changes, but the docs should describe them explicitly.
 
 The following design areas exist but are not complete yet:
 
-* `execute` is supported by the protocol and shell bridges, but is not yet a first-class action in the interactive UI
 * logging exists, but there is no dedicated telemetry package or event model yet
 * packaging and install flow are not formalized
 * the release-hardening phase is incomplete
@@ -175,9 +174,10 @@ Implemented:
 * confirmation UI flow
 * confirmation reason strings
 
-Gap:
+Also implemented:
 
-* confirmation currently gates insert flows in the UI, but there is not yet a separate interactive execute path
+* first-class interactive `execute` action in the Bubble Tea UI
+* confirmation flow that preserves insert vs execute intent
 
 ## Phase 7: Hardening
 
@@ -218,21 +218,26 @@ The project is now well past Milestone 1.
 
 The highest-value remaining gaps are:
 
-1. interactive `execute` action
-2. packaging and install flow
-3. telemetry/event model
-4. hardening and release checks
+1. packaging and install flow
+2. telemetry/event model
+3. hardening and release checks
 
 ## Recommended next phases
 
 ## Phase 8: Action completion and UX polish
 
-Recommended deliverables:
+Status: complete
 
-* first-class `execute` action in the interactive UI
-* clearer key help for insert vs execute
-* cleanup of any remaining terminal residue edge cases
-* polish around selected-row rendering and confirmation presentation
+Completed:
+
+* first-class interactive `execute` action
+* live UI key help for insert vs execute
+* terminal cleanup on UI exit
+* selected-row and confirmation presentation improvements
+
+Note:
+
+There may still be minor follow-up polish in terminal cleanup and theme tuning, but the primary Phase 8 goals are now complete.
 
 ## Phase 9: Packaging and install
 
