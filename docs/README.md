@@ -22,3 +22,5 @@ Move implementation-grade detail into focused docs:
 * `provider-integration.md`
 * `testing-strategy.md`
 * `prompting.md` if prompt design is formalized as a separate doc
+* `packaging.md`
+* `install.md`
