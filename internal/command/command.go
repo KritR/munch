@@ -15,7 +15,7 @@ import (
 	cli "github.com/urfave/cli/v3"
 )
 
-const Version = "dev"
+var Version = "dev"
 
 type IO struct {
 	Stdin  io.Reader
