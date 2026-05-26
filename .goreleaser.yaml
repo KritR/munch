@@ -7,13 +7,24 @@ before:
     - go mod tidy
 
 builds:
-  - id: munch
+  - id: munch-macos
     main: ./cmd/munch
     binary: munch
     env:
       - CGO_ENABLED=0
     goos:
       - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w -X github.com/krithikr/munch/internal/command.Version={{ .Version }}
+  - id: munch-linux
+    main: ./cmd/munch
+    binary: munch
+    env:
+      - CGO_ENABLED=0
+    goos:
       - linux
     goarch:
       - amd64
@@ -22,19 +33,66 @@ builds:
       - -s -w -X github.com/krithikr/munch/internal/command.Version={{ .Version }}
 
 archives:
-  - id: default
+  - id: linux-archives
     ids:
-      - munch
+      - munch-linux
     formats:
       - tar.gz
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
     files:
       - README.md
-      - LICENSE*
+  - id: macos-cask
+    ids:
+      - munch-universal
+    formats:
+      - zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_darwin_universal
+
+universal_binaries:
+  - id: munch-universal
+    ids:
+      - munch-macos
+    name_template: munch
+    replace: true
 
 checksum:
   name_template: checksums.txt
+
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - munch-universal
+      sign:
+        certificate: "{{ .Env.MACOS_SIGN_P12 }}"
+        password: "{{ .Env.MACOS_SIGN_PASSWORD }}"
+      notarize:
+        issuer_id: "{{ .Env.MACOS_NOTARY_ISSUER_ID }}"
+        key_id: "{{ .Env.MACOS_NOTARY_KEY_ID }}"
+        key: "{{ .Env.MACOS_NOTARY_KEY }}"
+        wait: true
+        timeout: 20m
+
+homebrew_casks:
+  - name: munch
+    ids:
+      - macos-cask
+    binaries:
+      - munch
+    directory: Casks
+    homepage: "https://github.com/KritR/munch"
+    description: "AI shell command widget for Zsh and Fish"
+    commit_msg_template: "Brew cask update for {{ .ProjectName }} version {{ .Tag }}"
+    repository:
+      owner: KritR
+      name: homebrew-munch
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: github-actions[bot]
+      email: 41898282+github-actions[bot]@users.noreply.github.com
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"

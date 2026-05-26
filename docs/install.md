@@ -20,6 +20,7 @@ The install model should:
 
 * keep the shipped binary name as `munch`
 * support manual installation from release artifacts
+* support Homebrew cask installation on macOS through the `KritR/munch` tap
 * use Starship-style shell setup through `munch init zsh` and `munch init fish`
 * keep shell integration self-contained inside the binary
 * avoid mutating shell rc files automatically
@@ -31,7 +32,6 @@ The initial install flow does not aim to provide:
 
 * automatic shell rc file edits
 * a required curl-pipe-sh installer
-* package-manager-specific instructions in iteration 1
 * installing shell integration files into XDG data directories
 
 ## Install model
@@ -64,6 +64,40 @@ The binary is expected to live in a user-accessible directory already on `PATH`,
 The exact installation command depends on the chosen distribution method, but the user-facing contract should remain stable:
 
 * the executable they run is `munch`
+
+## Homebrew install on macOS
+
+Homebrew cask is the recommended package-manager install path on macOS.
+
+Users can install `munch` from the tap with:
+
+```sh
+brew install --cask KritR/munch/munch
+```
+
+Equivalent explicit tap flow:
+
+```sh
+brew tap KritR/munch https://github.com/KritR/homebrew-munch
+brew install --cask munch
+```
+
+Upgrades should use normal Homebrew commands:
+
+```sh
+brew update
+brew upgrade munch
+```
+
+The cask installs a signed and notarized universal macOS binary archive and places the `munch` binary on `PATH`. Shell integration still comes from the CLI at shell startup through `munch init zsh` or `munch init fish`.
+
+## Manual install on Linux
+
+Linux install remains a direct release-artifact flow.
+
+Users should download the matching `munch_<version>_linux_<arch>.tar.gz` archive from GitHub Releases, extract it, and place the `munch` binary on `PATH`.
+
+Manual install from release artifacts also remains supported on macOS when Homebrew is not desired.
 
 ## CLI framework
 
@@ -212,16 +246,18 @@ Recommended checks:
 
 ## Upgrade and uninstall
 
-Iteration 1 should document simple manual upgrade and uninstall behavior.
+Iteration 1 should document simple upgrade and uninstall behavior.
 
 Upgrade:
 
+* for Homebrew cask installs on macOS, run `brew update` and `brew upgrade munch`
 * replace the binary with a newer release
 * keep config and shell init snippets unchanged
 * start a new shell so the rc file evaluates the new embedded init script
 
 Uninstall:
 
+* for Homebrew cask installs on macOS, run `brew uninstall --cask munch`
 * remove the `munch` binary
 * remove the shell init snippet from shell config
 * optionally remove the config directory

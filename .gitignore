@@ -1,5 +1,6 @@
 bin/
 dist/
 .gocache/
+.gomodcache/
 .DS_Store
 *.log

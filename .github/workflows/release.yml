@@ -12,6 +12,13 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    env:
+      HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+      MACOS_SIGN_P12: ${{ secrets.MACOS_SIGN_P12 }}
+      MACOS_SIGN_PASSWORD: ${{ secrets.MACOS_SIGN_PASSWORD }}
+      MACOS_NOTARY_KEY: ${{ secrets.MACOS_NOTARY_KEY }}
+      MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+      MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
@@ -28,7 +35,7 @@ jobs:
         run: go test ./...
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: latest

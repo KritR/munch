@@ -32,6 +32,21 @@ make install PREFIX="$HOME/.local"
 
 Make sure the install prefix is on `PATH`.
 
+## Install with Homebrew on macOS
+
+On macOS, install from the tap with:
+
+```sh
+brew install --cask KritR/munch/munch
+```
+
+Equivalent explicit tap flow:
+
+```sh
+brew tap KritR/munch https://github.com/KritR/homebrew-munch
+brew install --cask munch
+```
+
 ## Configure
 
 Create the config file at:
