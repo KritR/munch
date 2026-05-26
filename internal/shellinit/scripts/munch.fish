@@ -1,30 +1,30 @@
-# Bootstrap Fish integration for early end-to-end testing.
+# Bootstrap Fish integration for munch.
 #
 # The shell side stays thin: it passes shell-local state via environment
-# variables and asks the Go widget binary to return Fish-safe assignments.
+# variables and asks the Go binary to return Fish-safe assignments.
 
-if not set -q MUNCH_WIDGET_BIN
-    set -g MUNCH_WIDGET_BIN munch-widget
+if not set -q MUNCH_BIN
+    set -g MUNCH_BIN munch
 end
 
-if not set -q MUNCH_WIDGET_ARGS
-    set -g MUNCH_WIDGET_ARGS
+if not set -q MUNCH_ARGS
+    set -g MUNCH_ARGS
 end
 
-function munch-widget
-    if not test -x "$MUNCH_WIDGET_BIN"
-        if not command -sq "$MUNCH_WIDGET_BIN"
-            echo "munch-widget binary not found: $MUNCH_WIDGET_BIN" >&2
+function __munch_widget
+    if not test -x "$MUNCH_BIN"
+        if not command -sq "$MUNCH_BIN"
+            echo "munch binary not found: $MUNCH_BIN" >&2
             commandline -f repaint
             return 1
         end
     end
 
     set -l request_id "req_"(date +%s)"_"(random)
-    set -l widget_cmd "$MUNCH_WIDGET_BIN" --mode fish-bridge
+    set -l widget_cmd "$MUNCH_BIN" --mode fish-bridge
 
-    if test -n "$MUNCH_WIDGET_ARGS"
-        set -a widget_cmd (string split ' ' -- $MUNCH_WIDGET_ARGS)
+    if test -n "$MUNCH_ARGS"
+        set -a widget_cmd (string split ' ' -- $MUNCH_ARGS)
     end
 
     set -l assignments (
@@ -36,7 +36,7 @@ function munch-widget
             $widget_cmd
     )
     or begin
-        echo "munch-widget execution failed" >&2
+        echo "munch execution failed" >&2
         commandline -f repaint
         return 1
     end
@@ -59,8 +59,8 @@ function munch-widget
     end
 end
 
-function munch-widget-bind
-    bind \cg munch-widget
-    bind -M insert \cg munch-widget
-    bind -M default \cg munch-widget
+function __munch_bind
+{{BINDINGS}}
 end
+
+__munch_bind

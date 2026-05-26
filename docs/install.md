@@ -45,6 +45,9 @@ This means the CLI should support:
 
 * `munch init zsh`
 * `munch init fish`
+* `munch init zsh --key <sequence>`
+* `munch init fish --key <sequence>`
+* `munch init <shell> --no-bind`
 
 Those commands should print executable shell integration code to stdout. The user's shell config should evaluate or source that generated code at startup.
 
@@ -64,13 +67,15 @@ The exact installation command depends on the chosen distribution method, but th
 
 ## CLI framework
 
-The CLI should use `urfave/cli`.
+The CLI should use `urfave/cli/v3`.
 
 The initial command surface should include:
 
 * `munch`
 * `munch init zsh`
 * `munch init fish`
+* `munch init <shell> --key <sequence>`
+* `munch init <shell> --no-bind`
 * `munch completion <shell>` if completion generation is added in the same phase
 * `munch --version`
 
@@ -125,11 +130,23 @@ eval "$(munch init zsh)"
 The generated Zsh code should:
 
 * define the ZLE widget
-* bind the widget to the chosen key sequence
+* bind the widget to the chosen key sequence unless `--no-bind` is set
 * call back into `munch` for bridge/runtime execution
 * restore or replace the shell buffer based on the response action
 
 The generated code should assume `munch` is available on `PATH`.
+
+The default Zsh binding should be `^G`. Users can override it in their rc file:
+
+```zsh
+eval "$(munch init zsh --key '^X^M')"
+```
+
+Advanced users can opt out of automatic binding:
+
+```zsh
+eval "$(munch init zsh --no-bind)"
+```
 
 ## Fish setup
 
@@ -144,11 +161,23 @@ munch init fish | source
 The generated Fish code should:
 
 * define the Fish binding function
-* bind the widget in the relevant Fish key maps
+* bind the widget in the relevant Fish key maps unless `--no-bind` is set
 * call back into `munch` for bridge/runtime execution
 * restore or replace the shell buffer based on the response action
 
 The generated code should assume `munch` is available on `PATH`.
+
+The default Fish binding should be `\cg`. Users can override it in their Fish config:
+
+```fish
+munch init fish --key \cx\cm | source
+```
+
+Advanced users can opt out of automatic binding:
+
+```fish
+munch init fish --no-bind | source
+```
 
 ## Config bootstrap
 

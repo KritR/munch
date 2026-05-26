@@ -1,17 +1,17 @@
-# Bootstrap Zsh integration for early end-to-end testing.
+# Bootstrap Zsh integration for munch.
 #
 # The shell side stays thin: it passes shell-local state via environment
-# variables and asks the Go widget binary to return shell-safe assignments.
+# variables and asks the Go binary to return shell-safe assignments.
 
-: "${MUNCH_WIDGET_BIN:=munch-widget}"
-: "${MUNCH_WIDGET_ARGS:=}"
+: "${MUNCH_BIN:=munch}"
+: "${MUNCH_ARGS:=}"
 
-function munch-widget-zle() {
+function __munch_zle_widget() {
   emulate -L zsh
   setopt localoptions no_aliases
 
-  if ! command -v "$MUNCH_WIDGET_BIN" >/dev/null 2>&1; then
-    zle -M "munch-widget binary not found: $MUNCH_WIDGET_BIN"
+  if ! command -v "$MUNCH_BIN" >/dev/null 2>&1; then
+    zle -M "munch binary not found: $MUNCH_BIN"
     return 1
   fi
 
@@ -19,15 +19,15 @@ function munch-widget-zle() {
   request_id="req_${EPOCHSECONDS}_${RANDOM}"
 
   local -a widget_cmd
-  widget_cmd=("$MUNCH_WIDGET_BIN" --mode zsh-bridge)
-  if [[ -n "$MUNCH_WIDGET_ARGS" ]]; then
+  widget_cmd=("$MUNCH_BIN" --mode zsh-bridge)
+  if [[ -n "$MUNCH_ARGS" ]]; then
     local -a extra_args
-    extra_args=(${(z)MUNCH_WIDGET_ARGS})
+    extra_args=(${(z)MUNCH_ARGS})
     widget_cmd+=("${extra_args[@]}")
   fi
 
   assignments=$(REQUEST_ID="$request_id" ORIGINAL_BUFFER="$BUFFER" PROMPT_TEXT="$BUFFER" CURSOR_POSITION="$CURSOR" "${widget_cmd[@]}") || {
-    zle -M "munch-widget execution failed"
+    zle -M "munch execution failed"
     return 1
   }
 
@@ -54,7 +54,9 @@ function munch-widget-zle() {
   esac
 }
 
-function munch-widget-bind-zle() {
-  zle -N munch-widget-zle
-  bindkey '^G' munch-widget-zle
+function __munch_bind_zle() {
+  zle -N __munch_zle_widget
+{{BINDINGS}}
 }
+
+__munch_bind_zle

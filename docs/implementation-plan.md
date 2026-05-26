@@ -19,7 +19,7 @@ Current code layout:
 
 ```text
 /cmd
-  /munch-widget
+  /munch
   /bt-debug
 /internal
   /app
@@ -35,11 +35,9 @@ Current code layout:
     /fake
   /runtime
   /safety
+  /shellinit
   /suggest
   /ui
-/shell
-  munch.zsh
-  munch.fish
 /docs
 ```
 
@@ -70,6 +68,7 @@ These design areas are implemented in a form that matches the current docs close
 * shell-aware context collection
 * Bubble Tea-based widget UI
 * Zsh and Fish support
+* embedded shell init scripts through `munch init zsh` and `munch init fish`
 
 ### Intentional drift from the original plan
 
@@ -87,7 +86,7 @@ These changes are good changes, but the docs should describe them explicitly.
 The following design areas exist but are not complete yet:
 
 * logging exists, but there is no dedicated telemetry package or event model yet
-* packaging and install flow are not formalized
+* packaging and install flow are partially implemented
 * the release-hardening phase is incomplete
 
 ## Phase status
@@ -241,12 +240,25 @@ There may still be minor follow-up polish in terminal cleanup and theme tuning, 
 
 ## Phase 9: Packaging and install
 
+Status: in progress
+
 Recommended deliverables:
 
-* install instructions for Zsh and Fish
-* shell init snippets
-* `make install` or equivalent local install workflow
-* config bootstrap guidance
+* install instructions for Zsh and Fish: complete
+* shell init snippets: complete through embedded `munch init zsh` and `munch init fish`
+* `make install` or equivalent local install workflow: complete for local builds
+* config bootstrap guidance: documented, but not yet implemented as a command
+
+Implemented so far:
+
+* `cmd/munch` as the shipped command entrypoint
+* `urfave/cli/v3` for command routing, help, version handling, and shell completion support
+* hidden bridge/session compatibility modes on the root command
+* embedded Zsh and Fish init scripts under `internal/shellinit`
+* configurable init-time keybinding with `--key`
+* `--no-bind` for users who want to bind manually
+* `make build` producing `bin/munch`
+* `make install` installing `munch` into `$(PREFIX)/bin`
 
 ## Phase 10: Observability and supportability
 
