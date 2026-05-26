@@ -89,7 +89,9 @@ For each target, the project should distinguish between:
 
 GoReleaser should become the source of truth for release packaging.
 
-The configuration should define:
+The repository includes `.goreleaser.yaml` as the source of truth for release packaging.
+
+The configuration defines:
 
 * build matrix
 * output binary name as `munch`
@@ -100,21 +102,25 @@ The configuration should define:
 
 Iteration 1 does not need to configure package-manager publishers yet, but the GoReleaser layout should leave room for them.
 
+Local validation:
+
+```sh
+goreleaser check
+GOCACHE="$PWD/.gocache" goreleaser release --snapshot --clean
+```
+
 ## GitHub CI
 
 GitHub Actions should validate the repo on pushes and pull requests.
 
-At minimum, CI should run:
+The repository includes `.github/workflows/ci.yml`.
+
+CI runs:
 
 * formatting checks
 * test suite execution
 * build verification
-
-Recommended initial CI checks:
-
-* `go test ./...`
-* `go fmt` consistency or equivalent formatting check
-* optional linting once the repo decides on the lint baseline
+* GoReleaser config validation
 
 The goal of CI is fast signal on correctness and release readiness, not full release publication.
 
@@ -122,7 +128,9 @@ The goal of CI is fast signal on correctness and release readiness, not full rel
 
 Release automation should be tag-driven.
 
-Recommended release model:
+The repository includes `.github/workflows/release.yml`.
+
+Release model:
 
 * a version tag such as `v0.1.0` triggers the release workflow
 * GitHub Actions runs GoReleaser
@@ -144,6 +152,15 @@ The expected release flow should be:
 3. GitHub Actions runs the release workflow
 4. GoReleaser builds and publishes artifacts
 5. smoke-test one or more downloaded artifacts
+
+Recommended manual commands:
+
+```sh
+jj bookmark set main -r @-
+jj git push --bookmark main
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ## Iteration 2 expansion
 

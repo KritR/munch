@@ -259,6 +259,15 @@ Implemented so far:
 * `--no-bind` for users who want to bind manually
 * `make build` producing `bin/munch`
 * `make install` installing `munch` into `$(PREFIX)/bin`
+* GoReleaser release configuration for macOS and Linux arm64/amd64 artifacts
+* GitHub Actions CI workflow
+* tag-triggered GitHub Actions release workflow
+
+Still needed:
+
+* push packaging/release commits to GitHub
+* run first real tag release
+* smoke-test downloaded release artifacts
 
 ## Phase 10: Observability and supportability
 
