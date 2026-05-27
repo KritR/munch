@@ -4,52 +4,47 @@
 
 It opens an inline terminal UI from your current shell prompt, turns a natural-language task into command suggestions, and inserts or executes the selected command.
 
-## Install from source
+## Basic Usage
 
-Prerequisites:
+1. Type a task at your shell prompt.
+2. Press `Ctrl-G`.
+3. Pick a suggested command from the widget.
+4. Insert it into the prompt or run it directly.
 
-* Go 1.24 or newer
-* Zsh or Fish
-* a Cerebras API key for provider-backed suggestions
+Example:
 
-Build the binary:
-
-```sh
-make build
+```text
+$ find all large log files modified today
 ```
 
-Install it somewhere on `PATH`:
+Then press `Ctrl-G` and let `munch` turn that into shell commands.
 
-```sh
-make install PREFIX=/usr/local
-```
+A short terminal recording lives at [docs/recordings/demo.cast](/Users/krithikr/Desktop/playground/munch/docs/recordings/demo.cast:1).
 
-For a user-local install:
+## Install
 
-```sh
-make install PREFIX="$HOME/.local"
-```
+### macOS
 
-Make sure the install prefix is on `PATH`.
-
-## Install with Homebrew on macOS
-
-On macOS, install from the tap with:
+Install with Homebrew:
 
 ```sh
 brew install --cask KritR/munch/munch
 ```
 
-Equivalent explicit tap flow:
+Or tap first:
 
 ```sh
 brew tap KritR/munch https://github.com/KritR/homebrew-munch
 brew install --cask munch
 ```
 
-## Configure
+### Linux
 
-Create the config file at:
+Download the matching `munch_<version>_linux_<arch>.tar.gz` archive from GitHub Releases, extract it, and place the `munch` binary on `PATH`.
+
+## Setup
+
+Create the config directory:
 
 ```sh
 mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/munch"
@@ -81,35 +76,68 @@ Export your provider key in your shell config:
 export CEREBRAS_API_KEY="..."
 ```
 
-## Set Up Zsh
+Enable shell integration.
 
-Add this to `~/.zshrc`:
+Zsh:
 
 ```zsh
 eval "$(munch init zsh)"
 ```
 
-By default this binds `Ctrl-G`. To choose a different binding:
-
-```zsh
-eval "$(munch init zsh --key '^X^M')"
-```
-
-## Set Up Fish
-
-Add this to `~/.config/fish/config.fish`:
+Fish:
 
 ```fish
 munch init fish | source
 ```
 
-By default this binds `Ctrl-G`. To choose a different binding:
+Start a new shell and verify the install:
+
+```sh
+munch --version
+```
+
+## Usage
+
+Once installed and configured:
+
+* type a task at the prompt
+* press `Ctrl-G` to open the widget
+* move through suggestions
+* accept one to insert or execute it
+
+Useful commands:
+
+```sh
+munch --version
+munch init zsh
+munch init fish
+```
+
+## Customization
+
+Change the default key binding in Zsh:
+
+```zsh
+eval "$(munch init zsh --key '^X^M')"
+```
+
+Change the default key binding in Fish:
 
 ```fish
 munch init fish --key \cx\cm | source
 ```
 
-## Shell Completions
+Disable automatic keybinding and wire it yourself:
+
+```zsh
+eval "$(munch init zsh --no-bind)"
+```
+
+```fish
+munch init fish --no-bind | source
+```
+
+Generate shell completions.
 
 Zsh:
 
@@ -123,17 +151,34 @@ Fish:
 munch completion fish > ~/.config/fish/completions/munch.fish
 ```
 
-## Verify
+## Development
 
-Start a new shell, then run:
+### Install from source
+
+Prerequisites:
+
+* Go 1.24 or newer
+* Zsh or Fish
+
+Build the binary:
 
 ```sh
-munch --version
+make build
 ```
 
-Type a task at your prompt, press `Ctrl-G`, and choose a suggestion from the widget.
+Install it somewhere on `PATH`:
 
-For debugging, set `MUNCH_LOG_FILE` before invoking the widget:
+```sh
+make install PREFIX=/usr/local
+```
+
+For a user-local install:
+
+```sh
+make install PREFIX="$HOME/.local"
+```
+
+For debugging:
 
 ```sh
 export MUNCH_LOG_FILE=/tmp/munch.log
