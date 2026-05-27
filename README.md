@@ -19,7 +19,7 @@ $ find all large log files modified today
 
 Then press `Ctrl-G` and let `munch` turn that into shell commands.
 
-A short terminal recording lives at [docs/recordings/demo.cast](/Users/krithikr/Desktop/playground/munch/docs/recordings/demo.cast:1).
+![munch demo](docs/recordings/demo.gif)
 
 ## Install
 
